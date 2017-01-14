@@ -518,12 +518,6 @@ bool App::init() {
 	}
 	glGetError(); // to clear the error caused deep in GLEW
 
-	// Setup openvr
-	std::string driver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-	std::string display = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
-	std::string title = "hellovr - " + driver + " " + display;
-	SDL_SetWindowTitle(monitorWindow, title.c_str());
-
 	// cube array
 	brickTextureId = 0;
 	sceneVertCount = 0;
