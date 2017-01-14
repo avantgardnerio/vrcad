@@ -97,7 +97,6 @@ private:
 	vr::IVRSystem *hmd;
 	vr::TrackedDevicePose_t devicePose[ vr::k_unMaxTrackedDeviceCount ];
 	Matrix4 devicePoseMat[ vr::k_unMaxTrackedDeviceCount ];
-	bool showDevice[ vr::k_unMaxTrackedDeviceCount ];
 
 private: // SDL bookkeeping
 	SDL_Window *monitorWindow;

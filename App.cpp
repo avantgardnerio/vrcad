@@ -146,14 +146,6 @@ bool App::handleInput() {
 			anyButtonPressed = true;
 			buttonPressed = true;
 		}
-		showDevice[deviceIdx] = controllerState.ulButtonPressed == 0;
-		for (int i = 0; i < 5; i++) {
-			float x = controllerState.rAxis[i].x;
-			float y = controllerState.rAxis[i].y;
-			if (x != 0.0f || y != 0.0f) {
-				printf("%0.3f %0.3f\n", x, y);
-			}
-		}
 	}
 	if (dirty) {
 		regenVB();
@@ -393,7 +385,7 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 	// ----- Render Model rendering -----
 	glUseProgram(renderModelShader);
 	for (uint32_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
-		if (!trackedDeviceModels[deviceIdx] || !showDevice[deviceIdx])
+		if (!trackedDeviceModels[deviceIdx])
 			continue;
 		const vr::TrackedDevicePose_t & pose = devicePose[deviceIdx];
 		if (!pose.bPoseIsValid)
@@ -747,7 +739,6 @@ void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
 		printf("Unable to load render model for tracked device %d (%s.%s)", deviceIdx, sTrackingSystemName.c_str(), modelName.c_str());
 	} else {
 		trackedDeviceModels[deviceIdx] = renderModel;
-		showDevice[deviceIdx] = true;
 	}
 }
 
