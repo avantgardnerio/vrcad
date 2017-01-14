@@ -1,34 +1,34 @@
 #include "CMainApplication.h"
 
 CMainApplication::CMainApplication( int argc, char *argv[] )
-	: m_pCompanionWindow(NULL)
-	, m_pContext(NULL)
-	, m_nCompanionWindowWidth( 640 )
-	, m_nCompanionWindowHeight( 320 )
-	, m_unSceneProgramID( 0 )
-	, m_unCompanionWindowProgramID( 0 )
-	, m_unControllerTransformProgramID( 0 )
-	, m_unRenderModelProgramID( 0 )
-	, m_pHMD( NULL )
-	, m_pRenderModels( NULL )
-	, m_bDebugOpenGL( false )
-	, m_bVerbose( false )
-	, m_bPerf( false )
-	, m_bVblank( false )
-	, m_bGlFinishHack( true )
-	, m_glControllerVertBuffer( 0 )
-	, m_unControllerVAO( 0 )
-	, m_unSceneVAO( 0 )
-	, m_nSceneMatrixLocation( -1 )
-	, m_nControllerMatrixLocation( -1 )
-	, m_nRenderModelMatrixLocation( -1 )
-	, m_iTrackedControllerCount( 0 )
-	, m_iTrackedControllerCount_Last( -1 )
-	, m_iValidPoseCount( 0 )
-	, m_iValidPoseCount_Last( -1 )
-	, m_iSceneVolumeInit( 20 )
-	, m_strPoseClasses("")
 {
+	m_pCompanionWindow = NULL;
+	m_pContext = NULL;
+	m_nCompanionWindowWidth = 640;
+	m_nCompanionWindowHeight = 320;
+	m_unSceneProgramID = 0;
+	m_unCompanionWindowProgramID = 0;
+	m_unControllerTransformProgramID = 0;
+	m_unRenderModelProgramID = 0;
+	m_pHMD = NULL;
+	m_pRenderModels = NULL;
+	m_bDebugOpenGL = false;
+	m_bVerbose = false;
+	m_bPerf = false;
+	m_bVblank = false;
+	m_bGlFinishHack = true;
+	m_glControllerVertBuffer = 0;
+	m_unControllerVAO = 0;
+	m_unSceneVAO = 0;
+	m_nSceneMatrixLocation = -1;
+	m_nControllerMatrixLocation = -1;
+	m_nRenderModelMatrixLocation = -1;
+	m_iTrackedControllerCount = 0;
+	m_iTrackedControllerCount_Last = -1;
+	m_iValidPoseCount = 0;
+	m_iValidPoseCount_Last = -1;
+	m_iSceneVolumeInit = 20;
+	m_strPoseClasses = "";
 	buttonPressed = false;
 	currentPolygon = nullptr;
 	mode = none;
