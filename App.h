@@ -38,7 +38,7 @@ public:
 	void ProcessVREvent( const vr::VREvent_t & event );
 	void RenderFrame();
 
-	bool SetupTexturemaps();
+	bool loadTextures();
 
 	void RenderControllerAxes();
 
@@ -109,7 +109,7 @@ private: // OpenGL bookkeeping
 
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
 	
-	GLuint m_iTexture;
+	GLuint brickTextureId;
 
 	unsigned int m_uiVertcount;
 

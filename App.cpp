@@ -94,7 +94,7 @@ bool App::init() {
 	SDL_SetWindowTitle(monitorWindow, strWindowTitle.c_str());
 
 	// cube array
-	m_iTexture = 0;
+	brickTextureId = 0;
 	m_uiVertcount = 0;
 
 	if (!initGl()) {
@@ -126,7 +126,7 @@ bool App::initGl() {
 	if (!createShaders())
 		return false;
 
-	SetupTexturemaps();
+	loadTextures();
 	SetupCameras();
 	SetupStereoRenderTargets();
 	SetupCompanionWindow();
@@ -179,23 +179,22 @@ bool App::createShaders()
 		&& monitorWindowShader != 0;
 }
 
-bool App::SetupTexturemaps()
-{
-	std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
-	std::string strFullPath = Path_MakeAbsolute("../assets/brick.png", sExecutableDirectory);
+bool App::loadTextures() {
+	std::string pwd = Path_StripFilename(Path_GetExecutablePath());
+	std::string texPath = Path_MakeAbsolute("../assets/brick.png", pwd);
 
-	std::vector<unsigned char> imageRGBA;
-	unsigned nImageWidth, nImageHeight;
-	unsigned nError = lodepng::decode(imageRGBA, nImageWidth, nImageHeight, strFullPath.c_str());
+	std::vector<unsigned char> imgBytes;
+	unsigned imgWidth, imgHeight;
+	unsigned err = lodepng::decode(imgBytes, imgWidth, imgHeight, texPath.c_str());
 
-	if (nError != 0)
+	if (err != 0)
 		return false;
 
-	glGenTextures(1, &m_iTexture);
-	glBindTexture(GL_TEXTURE_2D, m_iTexture);
+	glGenTextures(1, &brickTextureId);
+	glBindTexture(GL_TEXTURE_2D, brickTextureId);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, nImageWidth, nImageHeight,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, &imageRGBA[0]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imgWidth, imgHeight,
+		0, GL_RGBA, GL_UNSIGNED_BYTE, &imgBytes[0]);
 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -210,7 +209,7 @@ bool App::SetupTexturemaps()
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	return (m_iTexture != 0);
+	return (brickTextureId != 0);
 }
 
 void App::ThreadSleep( unsigned long nMilliseconds )
@@ -787,7 +786,7 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 	glUseProgram( sceneShader );
 	glUniformMatrix4fv( sceneShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
 	glBindVertexArray( m_unSceneVAO );
-	glBindTexture( GL_TEXTURE_2D, m_iTexture );
+	glBindTexture( GL_TEXTURE_2D, brickTextureId );
 	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
 	glBindVertexArray( 0 );
 
