@@ -803,11 +803,6 @@ void App::sleep( unsigned long millis )
 #endif
 }
 
-void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
-{
-	printf( "GL Error: %s\n", message );
-}
-
 Matrix4 App::steamMatToMatrix4( const vr::HmdMatrix34_t &matPose ) {
 	Matrix4 matrixObj(
 		matPose.m[0][0], matPose.m[1][0], matPose.m[2][0], 0.0,
@@ -875,13 +870,4 @@ void App::shutdown() {
 	}
 
 	SDL_Quit();
-}
-
-const char *App::byteToBin(int x) {
-    static char b[9];
-    b[0] = '\0';
-    for (int z = 128; z > 0; z >>= 1) {
-        strcat(b, ((x & z) == z) ? "1" : "0");
-    }
-    return b;
 }
