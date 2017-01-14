@@ -8,7 +8,7 @@
 
 #include <openvr.h>
 
-#include "thirdparty/openvr-1.0.5/samples/shared/lodepng.h"
+#include "lodepng.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
