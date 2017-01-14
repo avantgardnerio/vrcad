@@ -639,33 +639,8 @@ bool App::createShaders()
 
 bool App::loadTextures() {
 	std::string pwd = Path_StripFilename(Path_GetExecutablePath());
-	std::string texPath = Path_MakeAbsolute("../assets/brick.png", pwd);
 
-	std::vector<unsigned char> imgBytes;
-	unsigned imgWidth, imgHeight;
-	unsigned err = lodepng::decode(imgBytes, imgWidth, imgHeight, texPath.c_str());
-
-	if (err != 0)
-		return false;
-
-	glGenTextures(1, &brickTextureId);
-	glBindTexture(GL_TEXTURE_2D, brickTextureId);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, imgWidth, imgHeight,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, &imgBytes[0]);
-
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-	GLfloat fLargest;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
+	brickTextureId = glutil::loadTexture(Path_MakeAbsolute("../assets/brick.png", pwd));
 
 	return (brickTextureId != 0);
 }
