@@ -24,12 +24,54 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CGLRenderModel.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CMainApplication.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Polygon.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\compat.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\lodepng.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\Matrices.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\Vectors.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="vrcad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CGLRenderModel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CMainApplication.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Polygon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\lodepng.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\Matrices.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
