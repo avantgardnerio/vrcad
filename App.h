@@ -28,7 +28,7 @@ public:
 	GLuint App::loadShader(std::string name);
 	void App::RegenVB();
 
-	void SetupRenderModels();
+	void initDeviceModels();
 
 	void Shutdown();
 
@@ -64,8 +64,8 @@ public:
 	GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
 	bool createShaders();
 
-	void SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_t unTrackedDeviceIndex );
-	CGLRenderModel *FindOrLoadRenderModel( const char *pchRenderModelName );
+	void initDeviceModel( vr::TrackedDeviceIndex_t unTrackedDeviceIndex );
+	CGLRenderModel *getRenderModel( const char *pchRenderModelName );
 
 private: 
 	bool m_bPerf;

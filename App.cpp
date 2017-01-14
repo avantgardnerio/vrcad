@@ -130,7 +130,7 @@ bool App::initGl() {
 	setupCameraMatrices();
 	setupHmdRenderTargets();
 	setupMonitorWindow();
-	SetupRenderModels();
+	initDeviceModels();
 	  
 	return true;
 }
@@ -344,6 +344,94 @@ void App::setupMonitorWindow() {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
+void App::initDeviceModels() {
+	memset(m_rTrackedDeviceToRenderModel, 0, sizeof(m_rTrackedDeviceToRenderModel));
+	if (!hmd)
+		return;
+
+	for (uint32_t deviceIdx = vr::k_unTrackedDeviceIndex_Hmd + 1; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++)	{
+		if (!hmd->IsTrackedDeviceConnected(deviceIdx))
+			continue;
+		initDeviceModel(deviceIdx);
+	}
+}
+
+void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
+	if (deviceIdx >= vr::k_unMaxTrackedDeviceCount)
+		return;
+
+	// try to find a model we've already set up
+	std::string modelName = getDeviceString(hmd, deviceIdx, vr::Prop_RenderModelName_String);
+	CGLRenderModel *renderModel = getRenderModel(modelName.c_str());
+	if (!renderModel)
+	{
+		std::string sTrackingSystemName = getDeviceString(hmd, deviceIdx, vr::Prop_TrackingSystemName_String);
+		printf("Unable to load render model for tracked device %d (%s.%s)", deviceIdx, sTrackingSystemName.c_str(), modelName.c_str());
+	}
+	else
+	{
+		m_rTrackedDeviceToRenderModel[deviceIdx] = renderModel;
+		m_rbShowTrackedDevice[deviceIdx] = true;
+	}
+}
+
+CGLRenderModel *App::getRenderModel(const char *modelName) {
+
+	// Find model
+	CGLRenderModel *renderModel = NULL;
+	for (std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++) {
+		if (!stricmp((*i)->GetName().c_str(), modelName)) {
+			renderModel = *i;
+			break;
+		}
+	}
+	if(renderModel) {
+		return renderModel;
+	}
+
+	// Load model
+	vr::RenderModel_t *model;
+	vr::EVRRenderModelError error;
+	while (1) {
+		error = vr::VRRenderModels()->LoadRenderModel_Async(modelName, &model);
+		if (error != vr::VRRenderModelError_Loading)
+			break;
+		ThreadSleep(1);
+	}
+	if (error != vr::VRRenderModelError_None) {
+		printf("Unable to load render model %s - %s\n", modelName, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum(error));
+		return NULL; // move on to the next tracked device
+	}
+
+	// Load texture
+	vr::RenderModel_TextureMap_t *texture;
+	while (1) {
+		error = vr::VRRenderModels()->LoadTexture_Async(model->diffuseTextureId, &texture);
+		if (error != vr::VRRenderModelError_Loading)
+			break;
+		ThreadSleep(1);
+	}
+	if (error != vr::VRRenderModelError_None) {
+		printf("Unable to load render texture id:%d for render model %s\n", model->diffuseTextureId, modelName);
+		vr::VRRenderModels()->FreeRenderModel(model);
+		return NULL; // move on to the next tracked device
+	}
+
+	// Generate render model
+	renderModel = new CGLRenderModel(modelName);
+	if (!renderModel->BInit(*model, *texture)) {
+		printf("Unable to create GL model from render model %s\n", modelName);
+		delete renderModel;
+		renderModel = NULL;
+	} else {
+		m_vecRenderModels.push_back(renderModel);
+	}
+	vr::VRRenderModels()->FreeRenderModel(model);
+	vr::VRRenderModels()->FreeTexture(texture);
+
+	return renderModel;
+}
+
 void App::ThreadSleep( unsigned long nMilliseconds )
 {
 #if defined(_WIN32)
@@ -533,7 +621,7 @@ void App::ProcessVREvent( const vr::VREvent_t & event )
 	{
 	case vr::VREvent_TrackedDeviceActivated:
 		{
-			SetupRenderModelForTrackedDevice( event.trackedDeviceIndex );
+			initDeviceModel( event.trackedDeviceIndex );
 			printf( "Device %u attached. Setting up render model.\n", event.trackedDeviceIndex );
 		}
 		break;
@@ -919,109 +1007,6 @@ void App::UpdateHMDMatrixPose()
 		m_mat4HMDPose = m_rmat4DevicePose[vr::k_unTrackedDeviceIndex_Hmd];
 		m_mat4HMDPose.invert();
 	}
-}
-
-CGLRenderModel *App::FindOrLoadRenderModel( const char *pchRenderModelName )
-{
-	CGLRenderModel *pRenderModel = NULL;
-	for( std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++ )
-	{
-		if( !stricmp( (*i)->GetName().c_str(), pchRenderModelName ) )
-		{
-			pRenderModel = *i;
-			break;
-		}
-	}
-
-	// load the model if we didn't find one
-	if( !pRenderModel )
-	{
-		vr::RenderModel_t *pModel;
-		vr::EVRRenderModelError error;
-		while ( 1 )
-		{
-			error = vr::VRRenderModels()->LoadRenderModel_Async( pchRenderModelName, &pModel );
-			if ( error != vr::VRRenderModelError_Loading )
-				break;
-
-			ThreadSleep( 1 );
-		}
-
-		if ( error != vr::VRRenderModelError_None )
-		{
-			printf( "Unable to load render model %s - %s\n", pchRenderModelName, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum( error ) );
-			return NULL; // move on to the next tracked device
-		}
-
-		vr::RenderModel_TextureMap_t *pTexture;
-		while ( 1 )
-		{
-			error = vr::VRRenderModels()->LoadTexture_Async( pModel->diffuseTextureId, &pTexture );
-			if ( error != vr::VRRenderModelError_Loading )
-				break;
-
-			ThreadSleep( 1 );
-		}
-
-		if ( error != vr::VRRenderModelError_None )
-		{
-			printf( "Unable to load render texture id:%d for render model %s\n", pModel->diffuseTextureId, pchRenderModelName );
-			vr::VRRenderModels()->FreeRenderModel( pModel );
-			return NULL; // move on to the next tracked device
-		}
-
-		pRenderModel = new CGLRenderModel( pchRenderModelName );
-		if ( !pRenderModel->BInit( *pModel, *pTexture ) )
-		{
-			printf( "Unable to create GL model from render model %s\n", pchRenderModelName );
-			delete pRenderModel;
-			pRenderModel = NULL;
-		}
-		else
-		{
-			m_vecRenderModels.push_back( pRenderModel );
-		}
-		vr::VRRenderModels()->FreeRenderModel( pModel );
-		vr::VRRenderModels()->FreeTexture( pTexture );
-	}
-	return pRenderModel;
-}
-
-void App::SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_t unTrackedDeviceIndex )
-{
-	if( unTrackedDeviceIndex >= vr::k_unMaxTrackedDeviceCount )
-		return;
-
-	// try to find a model we've already set up
-	std::string sRenderModelName = getDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_RenderModelName_String );
-	CGLRenderModel *pRenderModel = FindOrLoadRenderModel( sRenderModelName.c_str() );
-	if( !pRenderModel )
-	{
-		std::string sTrackingSystemName = getDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String );
-		printf( "Unable to load render model for tracked device %d (%s.%s)", unTrackedDeviceIndex, sTrackingSystemName.c_str(), sRenderModelName.c_str() );
-	}
-	else
-	{
-		m_rTrackedDeviceToRenderModel[ unTrackedDeviceIndex ] = pRenderModel;
-		m_rbShowTrackedDevice[ unTrackedDeviceIndex ] = true;
-	}
-}
-
-void App::SetupRenderModels()
-{
-	memset( m_rTrackedDeviceToRenderModel, 0, sizeof( m_rTrackedDeviceToRenderModel ) );
-
-	if( !hmd )
-		return;
-
-	for( uint32_t unTrackedDevice = vr::k_unTrackedDeviceIndex_Hmd + 1; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++ )
-	{
-		if( !hmd->IsTrackedDeviceConnected( unTrackedDevice ) )
-			continue;
-
-		SetupRenderModelForTrackedDevice( unTrackedDevice );
-	}
-
 }
 
 Matrix4 App::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose )
