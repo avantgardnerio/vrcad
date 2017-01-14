@@ -68,7 +68,10 @@ bool App::handleInput() {
 	// Process SteamVR events
 	vr::VREvent_t event;
 	while (hmd->PollNextEvent(&event, sizeof(event))) {
-		processVrEvent(event);
+		if(event.eventType == vr::VREvent_TrackedDeviceActivated) {
+			initDeviceModel(event.trackedDeviceIndex);
+			printf("Device %u attached. Setting up render model.\n", event.trackedDeviceIndex);
+		}
 	}
 
 	// Process SteamVR controller state
@@ -475,28 +478,6 @@ void App::updateHmdPose() {
 	}
 }
 
-void App::processVrEvent(const vr::VREvent_t & event) {
-	switch (event.eventType)
-	{
-		case vr::VREvent_TrackedDeviceActivated:
-			{
-				initDeviceModel(event.trackedDeviceIndex);
-				printf("Device %u attached. Setting up render model.\n", event.trackedDeviceIndex);
-			}
-			break;
-		case vr::VREvent_TrackedDeviceDeactivated:
-			{
-				printf("Device %u detached.\n", event.trackedDeviceIndex);
-			}
-			break;
-		case vr::VREvent_TrackedDeviceUpdated:
-			{
-				printf("Device %u updated.\n", event.trackedDeviceIndex);
-			}
-			break;
-	}
-}
-
 // --------------------------------- init ------------------------------------
 bool App::init() {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
@@ -546,9 +527,9 @@ bool App::init() {
 	glGetError(); // to clear the error caused deep in GLEW
 
 	// Setup openvr
-	std::string m_strDriver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-	std::string m_strDisplay = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
-	std::string title = "hellovr - " + m_strDriver + " " + m_strDisplay;
+	std::string driver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+	std::string display = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+	std::string title = "hellovr - " + driver + " " + display;
 	SDL_SetWindowTitle(monitorWindow, title.c_str());
 
 	// cube array
@@ -761,13 +742,10 @@ void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
 	// try to find a model we've already set up
 	std::string modelName = getDeviceString(hmd, deviceIdx, vr::Prop_RenderModelName_String);
 	CGLRenderModel *renderModel = getDeviceModel(modelName.c_str());
-	if (!renderModel)
-	{
+	if (!renderModel) {
 		std::string sTrackingSystemName = getDeviceString(hmd, deviceIdx, vr::Prop_TrackingSystemName_String);
 		printf("Unable to load render model for tracked device %d (%s.%s)", deviceIdx, sTrackingSystemName.c_str(), modelName.c_str());
-	}
-	else
-	{
+	} else {
 		trackedDeviceModels[deviceIdx] = renderModel;
 		showDevice[deviceIdx] = true;
 	}

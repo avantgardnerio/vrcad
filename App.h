@@ -57,7 +57,6 @@ public:
 	void renderToHmd();
 	void renderToMonitorWindow();
 	void renderToEye(vr::Hmd_Eye nEye);
-	void processVrEvent(const vr::VREvent_t & event);
 
 	// GL util
 	GLuint loadShader(std::string name);
@@ -76,7 +75,6 @@ public:
 	// utility
 	const char *byteToBin(int x);
 	void sleep( unsigned long nMilliseconds );
-	void dprintf( const char *fmt, ... );
 	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);
 
 private: 

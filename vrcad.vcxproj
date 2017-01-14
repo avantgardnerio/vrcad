@@ -146,9 +146,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <Text Include="ReadMe.txt" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="GlUtil.h" />
     <ClInclude Include="CGLRenderModel.h" />
     <ClInclude Include="App.h" />
