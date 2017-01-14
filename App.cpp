@@ -127,9 +127,9 @@ bool App::initGl() {
 		return false;
 
 	loadTextures();
-	SetupCameras();
-	SetupStereoRenderTargets();
-	SetupCompanionWindow();
+	setupCameraMatrices();
+	setupHmdRenderTargets();
+	setupMonitorWindow();
 	SetupRenderModels();
 	  
 	return true;
@@ -210,6 +210,138 @@ bool App::loadTextures() {
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return (brickTextureId != 0);
+}
+
+void App::setupCameraMatrices() {
+	leftEyeProj = getEyeProj(vr::Eye_Left);
+	rightEyeProj = getEyeProj(vr::Eye_Right);
+	leftEyePos = getEyePos(vr::Eye_Left);
+	rightEyePos = getEyePos(vr::Eye_Right);
+}
+
+Matrix4 App::getEyeProj(vr::Hmd_Eye nEye) {
+	if (!hmd)
+		return Matrix4();
+
+	float nearClip = 0.1f;
+	float farClip = 30.0f;
+	vr::HmdMatrix44_t mat = hmd->GetProjectionMatrix(nEye, nearClip, farClip);
+
+	return Matrix4(
+		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
+		mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1],
+		mat.m[0][2], mat.m[1][2], mat.m[2][2], mat.m[3][2],
+		mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]
+	);
+}
+
+Matrix4 App::getEyePos(vr::Hmd_Eye nEye) {
+	if (!hmd)
+		return Matrix4();
+
+	vr::HmdMatrix34_t matEyeRight = hmd->GetEyeToHeadTransform(nEye);
+	Matrix4 matrixObj(
+		matEyeRight.m[0][0], matEyeRight.m[1][0], matEyeRight.m[2][0], 0.0,
+		matEyeRight.m[0][1], matEyeRight.m[1][1], matEyeRight.m[2][1], 0.0,
+		matEyeRight.m[0][2], matEyeRight.m[1][2], matEyeRight.m[2][2], 0.0,
+		matEyeRight.m[0][3], matEyeRight.m[1][3], matEyeRight.m[2][3], 1.0f
+	);
+
+	return matrixObj.invert();
+}
+
+bool App::setupHmdRenderTargets() {
+	if (!hmd)
+		return false;
+
+	hmd->GetRecommendedRenderTargetSize(&hmdRenderWidth, &hmdRenderHeight);
+
+	createFrameBuffer(hmdRenderWidth, hmdRenderHeight, leftEyeDesc);
+	createFrameBuffer(hmdRenderWidth, hmdRenderHeight, rightEyeDesc);
+
+	return true;
+}
+
+bool App::createFrameBuffer(int width, int height, FramebufferDesc &framebufferDesc) {
+	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
+
+	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
+	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
+	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
+
+	glGenTextures(1, &framebufferDesc.m_nRenderTextureId);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, width, height, true);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
+
+	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
+
+	glGenTextures(1, &framebufferDesc.m_nResolveTextureId);
+	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
+
+	// check FBO status
+	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE) {
+		return false;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	return true;
+}
+
+void App::setupMonitorWindow() {
+	if (!hmd)
+		return;
+
+	std::vector<VertexDataWindow> verts;
+
+	// left eye verts
+	verts.push_back(VertexDataWindow(Vector2(-1, -1), Vector2(0, 1)));
+	verts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(1, 1)));
+	verts.push_back(VertexDataWindow(Vector2(-1, 1), Vector2(0, 0)));
+	verts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(1, 0)));
+
+	// right eye verts
+	verts.push_back(VertexDataWindow(Vector2(0, -1), Vector2(0, 1)));
+	verts.push_back(VertexDataWindow(Vector2(1, -1), Vector2(1, 1)));
+	verts.push_back(VertexDataWindow(Vector2(0, 1), Vector2(0, 0)));
+	verts.push_back(VertexDataWindow(Vector2(1, 1), Vector2(1, 0)));
+
+	GLushort indices[] = { 0, 1, 3,   0, 3, 2,   4, 5, 7,   4, 7, 6 };
+	monitorWinIdxSize = _countof(indices);
+
+	glGenVertexArrays(1, &monitorWinVertAr);
+	glBindVertexArray(monitorWinVertAr);
+
+	glGenBuffers(1, &monitorWinVertBuff);
+	glBindBuffer(GL_ARRAY_BUFFER, monitorWinVertBuff);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(VertexDataWindow), &verts[0], GL_STATIC_DRAW);
+
+	glGenBuffers(1, &monitorWinIdxBuff);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, monitorWinIdxBuff);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, monitorWinIdxSize * sizeof(GLushort), &indices[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof(VertexDataWindow, position));
+
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof(VertexDataWindow, texCoord));
+
+	glBindVertexArray(0);
+
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void App::ThreadSleep( unsigned long nMilliseconds )
@@ -615,112 +747,6 @@ void App::RenderControllerAxes() {
 	}
 }
 
-void App::SetupCameras()
-{
-	m_mat4ProjectionLeft = GetHMDMatrixProjectionEye( vr::Eye_Left );
-	m_mat4ProjectionRight = GetHMDMatrixProjectionEye( vr::Eye_Right );
-	m_mat4eyePosLeft = GetHMDMatrixPoseEye( vr::Eye_Left );
-	m_mat4eyePosRight = GetHMDMatrixPoseEye( vr::Eye_Right );
-}
-
-bool App::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc )
-{
-	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId );
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
-
-	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
-	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, nWidth, nHeight );
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER,	framebufferDesc.m_nDepthBufferId );
-
-	glGenTextures(1, &framebufferDesc.m_nRenderTextureId );
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId );
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, nWidth, nHeight, true);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
-
-	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId );
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
-
-	glGenTextures(1, &framebufferDesc.m_nResolveTextureId );
-	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId );
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, nWidth, nHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
-
-	// check FBO status
-	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-	if (status != GL_FRAMEBUFFER_COMPLETE)
-	{
-		return false;
-	}
-
-	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-
-	return true;
-}
-
-bool App::SetupStereoRenderTargets()
-{
-	if ( !hmd )
-		return false;
-
-	hmd->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
-
-	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, leftEyeDesc );
-	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, rightEyeDesc );
-	
-	return true;
-}
-
-void App::SetupCompanionWindow()
-{
-	if ( !hmd )
-		return;
-
-	std::vector<VertexDataWindow> vVerts;
-
-	// left eye verts
-	vVerts.push_back( VertexDataWindow( Vector2(-1, -1), Vector2(0, 1)) );
-	vVerts.push_back( VertexDataWindow( Vector2(0, -1), Vector2(1, 1)) );
-	vVerts.push_back( VertexDataWindow( Vector2(-1, 1), Vector2(0, 0)) );
-	vVerts.push_back( VertexDataWindow( Vector2(0, 1), Vector2(1, 0)) );
-
-	// right eye verts
-	vVerts.push_back( VertexDataWindow( Vector2(0, -1), Vector2(0, 1)) );
-	vVerts.push_back( VertexDataWindow( Vector2(1, -1), Vector2(1, 1)) );
-	vVerts.push_back( VertexDataWindow( Vector2(0, 1), Vector2(0, 0)) );
-	vVerts.push_back( VertexDataWindow( Vector2(1, 1), Vector2(1, 0)) );
-
-	GLushort vIndices[] = { 0, 1, 3,   0, 3, 2,   4, 5, 7,   4, 7, 6};
-	m_uiCompanionWindowIndexSize = _countof(vIndices);
-
-	glGenVertexArrays( 1, &m_unCompanionWindowVAO );
-	glBindVertexArray( m_unCompanionWindowVAO );
-
-	glGenBuffers( 1, &m_glCompanionWindowIDVertBuffer );
-	glBindBuffer( GL_ARRAY_BUFFER, m_glCompanionWindowIDVertBuffer );
-	glBufferData( GL_ARRAY_BUFFER, vVerts.size()*sizeof(VertexDataWindow), &vVerts[0], GL_STATIC_DRAW );
-
-	glGenBuffers( 1, &m_glCompanionWindowIDIndexBuffer );
-	glBindBuffer( GL_ELEMENT_ARRAY_BUFFER, m_glCompanionWindowIDIndexBuffer );
-	glBufferData( GL_ELEMENT_ARRAY_BUFFER, m_uiCompanionWindowIndexSize*sizeof(GLushort), &vIndices[0], GL_STATIC_DRAW );
-
-	glEnableVertexAttribArray( 0 );
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof( VertexDataWindow, position ) );
-
-	glEnableVertexAttribArray( 1 );
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(VertexDataWindow), (void *)offsetof( VertexDataWindow, texCoord ) );
-
-	glBindVertexArray( 0 );
-
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-}
-
 void App::RenderStereoTargets()
 {
 	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
@@ -728,7 +754,7 @@ void App::RenderStereoTargets()
 
 	// Left Eye
 	glBindFramebuffer( GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+ 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight );
  	RenderScene( vr::Eye_Left );
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
 	
@@ -737,7 +763,7 @@ void App::RenderStereoTargets()
  	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId );
 
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, 
+    glBlitFramebuffer( 0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, 
 		GL_COLOR_BUFFER_BIT,
  		GL_LINEAR );
 
@@ -748,7 +774,7 @@ void App::RenderStereoTargets()
 
 	// Right Eye
 	glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, m_nRenderWidth, m_nRenderHeight );
+ 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight );
  	RenderScene( vr::Eye_Right );
  	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
  	
@@ -757,7 +783,7 @@ void App::RenderStereoTargets()
  	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
     glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId );
 	
-    glBlitFramebuffer( 0, 0, m_nRenderWidth, m_nRenderHeight, 0, 0, m_nRenderWidth, m_nRenderHeight, 
+    glBlitFramebuffer( 0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, 
 		GL_COLOR_BUFFER_BIT,
  		GL_LINEAR  );
 
@@ -819,7 +845,7 @@ void App::RenderCompanionWindow()
 	glDisable(GL_DEPTH_TEST);
 	glViewport( 0, 0, m_nCompanionWindowWidth, m_nCompanionWindowHeight );
 
-	glBindVertexArray( m_unCompanionWindowVAO );
+	glBindVertexArray( monitorWinVertAr );
 	glUseProgram( monitorWindowShader );
 
 	// render left eye (first half of index array )
@@ -828,7 +854,7 @@ void App::RenderCompanionWindow()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, 0 );
+	glDrawElements( GL_TRIANGLES, monitorWinIdxSize/2, GL_UNSIGNED_SHORT, 0 );
 
 	// render right eye (second half of index array )
 	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId  );
@@ -836,43 +862,10 @@ void App::RenderCompanionWindow()
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
 	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	glDrawElements( GL_TRIANGLES, m_uiCompanionWindowIndexSize/2, GL_UNSIGNED_SHORT, (const void *)(m_uiCompanionWindowIndexSize) );
+	glDrawElements( GL_TRIANGLES, monitorWinIdxSize/2, GL_UNSIGNED_SHORT, (const void *)(monitorWinIdxSize) );
 
 	glBindVertexArray( 0 );
 	glUseProgram( 0 );
-}
-
-Matrix4 App::GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye )
-{
-	if ( !hmd )
-		return Matrix4();
-
-	float nearClip = 0.1f;
-	float farClip = 30.0f;
-	vr::HmdMatrix44_t mat = hmd->GetProjectionMatrix( nEye, nearClip, farClip);
-
-	return Matrix4(
-		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
-		mat.m[0][1], mat.m[1][1], mat.m[2][1], mat.m[3][1], 
-		mat.m[0][2], mat.m[1][2], mat.m[2][2], mat.m[3][2], 
-		mat.m[0][3], mat.m[1][3], mat.m[2][3], mat.m[3][3]
-	);
-}
-
-Matrix4 App::GetHMDMatrixPoseEye( vr::Hmd_Eye nEye )
-{
-	if ( !hmd )
-		return Matrix4();
-
-	vr::HmdMatrix34_t matEyeRight = hmd->GetEyeToHeadTransform( nEye );
-	Matrix4 matrixObj(
-		matEyeRight.m[0][0], matEyeRight.m[1][0], matEyeRight.m[2][0], 0.0, 
-		matEyeRight.m[0][1], matEyeRight.m[1][1], matEyeRight.m[2][1], 0.0,
-		matEyeRight.m[0][2], matEyeRight.m[1][2], matEyeRight.m[2][2], 0.0,
-		matEyeRight.m[0][3], matEyeRight.m[1][3], matEyeRight.m[2][3], 1.0f
-		);
-
-	return matrixObj.invert();
 }
 
 Matrix4 App::GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye )
@@ -880,11 +873,11 @@ Matrix4 App::GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye )
 	Matrix4 matMVP;
 	if( nEye == vr::Eye_Left )
 	{
-		matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
+		matMVP = leftEyeProj * leftEyePos * m_mat4HMDPose;
 	}
 	else if( nEye == vr::Eye_Right )
 	{
-		matMVP = m_mat4ProjectionRight * m_mat4eyePosRight *  m_mat4HMDPose;
+		matMVP = rightEyeProj * rightEyePos *  m_mat4HMDPose;
 	}
 
 	return matMVP;
@@ -1095,9 +1088,9 @@ void App::Shutdown()
 		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
 		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
 
-		if( m_unCompanionWindowVAO != 0 )
+		if( monitorWinVertAr != 0 )
 		{
-			glDeleteVertexArrays( 1, &m_unCompanionWindowVAO );
+			glDeleteVertexArrays( 1, &monitorWinVertAr );
 		}
 		if( m_unSceneVAO != 0 ) {
 			glDeleteVertexArrays( 1, &m_unSceneVAO );

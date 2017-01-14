@@ -41,9 +41,9 @@ public:
 
 	void RenderControllerAxes();
 
-	bool SetupStereoRenderTargets();
-	void SetupCompanionWindow();
-	void SetupCameras();
+	bool setupHmdRenderTargets();
+	void setupMonitorWindow();
+	void setupCameraMatrices();
 
 	void RenderStereoTargets();
 	void RenderCompanionWindow();
@@ -54,8 +54,8 @@ public:
 	void dprintf( const char *fmt, ... );
 	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);
 
-	Matrix4 GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye );
-	Matrix4 GetHMDMatrixPoseEye( vr::Hmd_Eye nEye );
+	Matrix4 getEyeProj( vr::Hmd_Eye nEye );
+	Matrix4 getEyePos( vr::Hmd_Eye nEye );
 	Matrix4 GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye );
 	void UpdateHMDMatrixPose();
 
@@ -114,22 +114,22 @@ private: // OpenGL bookkeeping
 
 	GLuint m_glSceneVertBuffer;
 	GLuint m_unSceneVAO;
-	GLuint m_unCompanionWindowVAO;
-	GLuint m_glCompanionWindowIDVertBuffer;
-	GLuint m_glCompanionWindowIDIndexBuffer;
-	unsigned int m_uiCompanionWindowIndexSize;
+	GLuint monitorWinVertAr;
+	GLuint monitorWinVertBuff;
+	GLuint monitorWinIdxBuff;
+	unsigned int monitorWinIdxSize;
 
 	GLuint m_glControllerVertBuffer;
 	GLuint m_unControllerVAO;
 	unsigned int m_uiControllerVertcount;
 
 	Matrix4 m_mat4HMDPose;
-	Matrix4 m_mat4eyePosLeft;
-	Matrix4 m_mat4eyePosRight;
+	Matrix4 leftEyePos;
+	Matrix4 rightEyePos;
 
 	Matrix4 m_mat4ProjectionCenter;
-	Matrix4 m_mat4ProjectionLeft;
-	Matrix4 m_mat4ProjectionRight;
+	Matrix4 leftEyeProj;
+	Matrix4 rightEyeProj;
 
 	struct VertexDataScene
 	{
@@ -165,10 +165,10 @@ private: // OpenGL bookkeeping
 	FramebufferDesc leftEyeDesc;
 	FramebufferDesc rightEyeDesc;
 
-	bool CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
+	bool createFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
 	
-	uint32_t m_nRenderWidth;
-	uint32_t m_nRenderHeight;
+	uint32_t hmdRenderWidth;
+	uint32_t hmdRenderHeight;
 
 	std::vector< CGLRenderModel * > m_vecRenderModels;
 	CGLRenderModel *m_rTrackedDeviceToRenderModel[ vr::k_unMaxTrackedDeviceCount ];
