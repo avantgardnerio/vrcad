@@ -11,6 +11,7 @@
 #include <openvr.h>
 
 #include "lodepng.h"
+#include "GlUtil.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
@@ -31,15 +32,6 @@ private:
 		Vector2 texCoord;
 
 		VertexDataWindow(const Vector2 & pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
-	};
-
-	struct FramebufferDesc
-	{
-		GLuint depthBufferId;
-		GLuint renderTextureId;
-		GLuint renderFramebufferId;
-		GLuint resolveTextureId;
-		GLuint resolveFramebufferId;
 	};
 
 public:
@@ -70,7 +62,6 @@ public:
 	// GL util
 	GLuint loadShader(std::string name);
 	bool createShaders();
-	bool createFrameBuffer(int nWidth, int nHeight, FramebufferDesc &framebufferDesc);
 
 	// OpenVR Util
 	CGLRenderModel *getDeviceModel(const char *pchRenderModelName);
@@ -151,8 +142,8 @@ private: // OpenGL bookkeeping
 	GLint controllerShaderMatrix;
 	GLint renderModelShaderMatrix;
 
-	FramebufferDesc leftEyeDesc;
-	FramebufferDesc rightEyeDesc;
+	glutil::FramebufferDesc leftEyeDesc;
+	glutil::FramebufferDesc rightEyeDesc;
 
 	uint32_t hmdRenderWidth;
 	uint32_t hmdRenderHeight;
