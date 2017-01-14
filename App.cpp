@@ -1,3 +1,7 @@
+#include <string>
+#include <fstream>
+#include <streambuf>
+
 #include "App.h"
 
 App::App( int argc, char *argv[] ) {
@@ -121,30 +125,16 @@ bool App::initGl() {
 
 bool App::createShaders()
 {
+	std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
+	std::string vertPath = Path_MakeAbsolute("../assets/sceneShader.vert", sExecutableDirectory);
+	std::string fragPath = Path_MakeAbsolute("../assets/sceneShader.frag", sExecutableDirectory);
+	std::string sceneVert((std::istreambuf_iterator<char>(std::ifstream(vertPath))), std::istreambuf_iterator<char>());
+	std::string sceneFrag((std::istreambuf_iterator<char>(std::ifstream(fragPath))), std::istreambuf_iterator<char>());
+
 	sceneShader = CompileGLShader(
 		"Scene",
-
-		// Vertex Shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
-		"out vec2 v2UVcoords;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UVcoords = v2UVcoordsIn;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// Fragment Shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"in vec2 v2UVcoords;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture(mytexture, v2UVcoords);\n"
-		"}\n"
+		sceneVert.c_str(),
+		sceneFrag.c_str()
 	);
 	sceneShaderMatrix = glGetUniformLocation(sceneShader, "matrix");
 	if (sceneShaderMatrix == -1) {

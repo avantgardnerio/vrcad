@@ -175,6 +175,10 @@
     <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.cpp" />
     <ClCompile Include="vrcad.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\sceneShader.frag" />
+    <None Include="assets\sceneShader.vert" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

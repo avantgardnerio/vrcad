@@ -75,4 +75,8 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="assets\sceneShader.vert" />
+    <None Include="assets\sceneShader.frag" />
+  </ItemGroup>
 </Project>
