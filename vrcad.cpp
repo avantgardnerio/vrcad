@@ -13,21 +13,19 @@
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
 #include "stdafx.h"
-#include "CMainApplication.h"
+#include "App.h"
 
-int main(int argc, char *argv[])
-{
-	CMainApplication *pMainApplication = new CMainApplication(argc, argv);
+int main(int argc, char *argv[]) {
+	App *app = new App(argc, argv);
 
-	if (!pMainApplication->BInit())
-	{
-		pMainApplication->Shutdown();
+	if (!app->BInit()) {
+		app->Shutdown();
 		return 1;
 	}
 
-	pMainApplication->RunMainLoop();
+	app->RunMainLoop();
 
-	pMainApplication->Shutdown();
+	app->Shutdown();
 
 	return 0;
 }

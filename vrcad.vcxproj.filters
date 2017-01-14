@@ -27,9 +27,6 @@
     <ClInclude Include="CGLRenderModel.h">
       <Filter>Source Files</Filter>
     </ClInclude>
-    <ClInclude Include="CMainApplication.h">
-      <Filter>Source Files</Filter>
-    </ClInclude>
     <ClInclude Include="Polygon.h">
       <Filter>Source Files</Filter>
     </ClInclude>
@@ -48,6 +45,9 @@
     <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\Vectors.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="App.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -57,9 +57,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CGLRenderModel.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CMainApplication.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Polygon.cpp">
@@ -72,6 +69,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="App.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

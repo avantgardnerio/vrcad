@@ -150,7 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CGLRenderModel.h" />
-    <ClInclude Include="CMainApplication.h" />
+    <ClInclude Include="App.h" />
     <ClInclude Include="Polygon.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -162,7 +162,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CGLRenderModel.cpp" />
-    <ClCompile Include="CMainApplication.cpp" />
+    <ClCompile Include="App.cpp" />
     <ClCompile Include="Polygon.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
