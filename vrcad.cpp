@@ -19,13 +19,13 @@ int main(int argc, char *argv[]) {
 	App *app = new App(argc, argv);
 
 	if (!app->init()) { 
-		app->Shutdown();
+		app->shutdown();
 		return 1;
 	}
 
 	app->mainLoop();
 
-	app->Shutdown();
+	app->shutdown();
 
 	return 0;
 }

@@ -14,17 +14,12 @@ App::App( int argc, char *argv[] ) {
 	controllerShader = 0;
 	renderModelShader = 0;
 	hmd = NULL;
-	m_bPerf = false;
 	controllerVertBuffer = 0;
 	controllerVertAr = 0;
 	sceneVertexAr = 0;
 	sceneShaderMatrix = -1;
 	controllerShaderMatrix = -1;
 	renderModelShaderMatrix = -1;
-	trackedControllerCount = 0;
-	m_iTrackedControllerCount_Last = -1;
-	validPoseCount = 0;
-	m_iValidPoseCount_Last = -1;
 	m_iSceneVolumeInit = 20;
 	poseClasses = "";
 	buttonPressed = false;
@@ -229,13 +224,6 @@ void App::renderFrame() {
 	glClearColor(0, 0, 0, 1);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	// TODO: Kill this
-	if (trackedControllerCount != m_iTrackedControllerCount_Last || validPoseCount != m_iValidPoseCount_Last) {
-		m_iValidPoseCount_Last = validPoseCount;
-		m_iTrackedControllerCount_Last = trackedControllerCount;
-		printf("PoseCount:%d(%s) Controllers:%d\n", validPoseCount, poseClasses.c_str(), trackedControllerCount);
-	}
-
 	updateHmdPose();
 }
 
@@ -247,7 +235,6 @@ void App::renderControllerAxes() {
 	std::vector<float> floatAr;
 
 	controllerVertCount = 0;
-	trackedControllerCount = 0;
 
 	float hght = 0.0f;
 	for (vr::TrackedDeviceIndex_t deviceIdx = vr::k_unTrackedDeviceIndex_Hmd + 1; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
@@ -256,8 +243,6 @@ void App::renderControllerAxes() {
 
 		if (hmd->GetTrackedDeviceClass(deviceIdx) != vr::TrackedDeviceClass_Controller)
 			continue;
-
-		trackedControllerCount += 1;
 
 		if (!devicePose[deviceIdx].bPoseIsValid)
 			continue;
@@ -466,11 +451,9 @@ void App::updateHmdPose() {
 
 	vr::VRCompositor()->WaitGetPoses(devicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
-	validPoseCount = 0;
 	poseClasses = "";
 	for (int deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
 		if (devicePose[deviceIdx].bPoseIsValid) {
-			validPoseCount++;
 			devicePoseMat[deviceIdx] = ConvertSteamVRMatrixToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
 			if (classForDeviceIdx[deviceIdx] == 0) {
 				switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
@@ -563,8 +546,8 @@ bool App::init() {
 	glGetError(); // to clear the error caused deep in GLEW
 
 	// Setup openvr
-	m_strDriver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-	m_strDisplay = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+	std::string m_strDriver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+	std::string m_strDisplay = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
 	std::string title = "hellovr - " + m_strDriver + " " + m_strDisplay;
 	SDL_SetWindowTitle(monitorWindow, title.c_str());
 
@@ -983,16 +966,13 @@ Matrix4 App::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose )
 	return matrixObj;
 }
 
-void App::Shutdown()
-{
-	if( hmd )
-	{
+void App::shutdown() {
+	if( hmd ) {
 		vr::VR_Shutdown();
 		hmd = NULL;
 	}
 
-	for( std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++ )
-	{
+	for( std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++ ) {
 		delete (*i);
 	}
 	m_vecRenderModels.clear();
@@ -1059,17 +1039,12 @@ void App::Shutdown()
 	SDL_Quit();
 }
 
-const char *App::byte_to_binary(int x)
-{
+const char *App::byteToBin(int x) {
     static char b[9];
     b[0] = '\0';
-
-    int z;
-    for (z = 128; z > 0; z >>= 1)
-    {
+    for (int z = 128; z > 0; z >>= 1) {
         strcat(b, ((x & z) == z) ? "1" : "0");
     }
-
     return b;
 }
 

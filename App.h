@@ -22,7 +22,7 @@ public:
 	App( int argc, char *argv[] );
 	virtual ~App();
 
-	const char *byte_to_binary(int x);
+	const char *byteToBin(int x);
 	bool init();
 	bool initGl();
 	GLuint App::loadShader(std::string name);
@@ -30,7 +30,7 @@ public:
 
 	void initDeviceModels();
 
-	void Shutdown();
+	void shutdown();
 
 	void mainLoop();
 	bool handleInput();
@@ -68,8 +68,8 @@ public:
 	CGLRenderModel *getRenderModel( const char *pchRenderModelName );
 
 private: 
-	bool m_bPerf;
 
+	// ---- me
 	enum EditMode { 
 		none,
 		draw, 
@@ -77,15 +77,14 @@ private:
 	};
 
 	EditMode mode;
-
 	vr::TrackedDeviceIndex_t currentController;
 	net_squarelabs::Polygon *currentPolygon;
 	std::vector<net_squarelabs::Polygon> polygons;
 	bool buttonPressed;
 
+	// ---- ???
+
 	vr::IVRSystem *hmd;
-	std::string m_strDriver;
-	std::string m_strDisplay;
 	vr::TrackedDevicePose_t devicePose[ vr::k_unMaxTrackedDeviceCount ];
 	Matrix4 devicePoseMat[ vr::k_unMaxTrackedDeviceCount ];
 	bool showDevice[ vr::k_unMaxTrackedDeviceCount ];
@@ -94,15 +93,9 @@ private: // SDL bookkeeping
 	SDL_Window *monitorWindow;
 	uint32_t monitorWinWidth;
 	uint32_t monitorWinHeight;
-
 	SDL_GLContext monitorGlContext;
 
 private: // OpenGL bookkeeping
-	int trackedControllerCount;
-	int m_iTrackedControllerCount_Last;
-	int validPoseCount;
-	int m_iValidPoseCount_Last;
-
 	std::string poseClasses;								// what classes we saw poses for this frame TODO: Kill this
 	char classForDeviceIdx[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
