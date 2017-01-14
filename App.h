@@ -50,7 +50,7 @@ public:
 	void RenderCompanionWindow();
 	void RenderScene( vr::Hmd_Eye nEye );
 
-	std::string App::GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
+	std::string App::getDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
 	void ThreadSleep( unsigned long nMilliseconds );
 	void dprintf( const char *fmt, ... );
 	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);

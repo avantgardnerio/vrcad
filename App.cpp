@@ -88,8 +88,8 @@ bool App::init() {
 	glGetError(); // to clear the error caused deep in GLEW
 
 	// Setup openvr
-	m_strDriver = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
-	m_strDisplay = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+	m_strDriver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+	m_strDisplay = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
 	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
 	SDL_SetWindowTitle(monitorWindow, strWindowTitle.c_str());
 
@@ -108,6 +108,18 @@ bool App::init() {
 	}
 	 
 	return true;
+}
+
+std::string App::getDeviceString(vr::IVRSystem *hmd, vr::TrackedDeviceIndex_t deviceIdx, vr::TrackedDeviceProperty deviceProp, vr::TrackedPropertyError *err) {
+	uint32_t buffLen = hmd->GetStringTrackedDeviceProperty(deviceIdx, deviceProp, NULL, 0, err);
+	if (buffLen == 0)
+		return "";
+
+	char *buff = new char[buffLen];
+	buffLen = hmd->GetStringTrackedDeviceProperty(deviceIdx, deviceProp, buff, buffLen, err);
+	std::string sResult = buff;
+	delete[] buff;
+	return sResult;
 }
 
 bool App::initGl() {
@@ -167,17 +179,38 @@ bool App::createShaders()
 		&& monitorWindowShader != 0;
 }
 
-std::string App::GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError )
+bool App::SetupTexturemaps()
 {
-	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, NULL, 0, peError );
-	if( unRequiredBufferLen == 0 )
-		return "";
+	std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
+	std::string strFullPath = Path_MakeAbsolute("../assets/brick.png", sExecutableDirectory);
 
-	char *pchBuffer = new char[ unRequiredBufferLen ];
-	unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, pchBuffer, unRequiredBufferLen, peError );
-	std::string sResult = pchBuffer;
-	delete [] pchBuffer;
-	return sResult;
+	std::vector<unsigned char> imageRGBA;
+	unsigned nImageWidth, nImageHeight;
+	unsigned nError = lodepng::decode(imageRGBA, nImageWidth, nImageHeight, strFullPath.c_str());
+
+	if (nError != 0)
+		return false;
+
+	glGenTextures(1, &m_iTexture);
+	glBindTexture(GL_TEXTURE_2D, m_iTexture);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, nImageWidth, nImageHeight,
+		0, GL_RGBA, GL_UNSIGNED_BYTE, &imageRGBA[0]);
+
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+	GLfloat fLargest;
+	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return (m_iTexture != 0);
 }
 
 void App::ThreadSleep( unsigned long nMilliseconds )
@@ -491,40 +524,6 @@ GLuint App::CompileGLShader( const char *pchShaderName, const char *pchVertexSha
 	glUseProgram( 0 );
 
 	return unProgramID;
-}
-
-bool App::SetupTexturemaps()
-{
-	std::string sExecutableDirectory = Path_StripFilename( Path_GetExecutablePath() );
-	std::string strFullPath = Path_MakeAbsolute( "../assets/brick.png", sExecutableDirectory );
-	
-	std::vector<unsigned char> imageRGBA;
-	unsigned nImageWidth, nImageHeight;
-	unsigned nError = lodepng::decode( imageRGBA, nImageWidth, nImageHeight, strFullPath.c_str() );
-	
-	if ( nError != 0 )
-		return false;
-
-	glGenTextures(1, &m_iTexture );
-	glBindTexture( GL_TEXTURE_2D, m_iTexture );
-
-	glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, nImageWidth, nImageHeight,
-		0, GL_RGBA, GL_UNSIGNED_BYTE, &imageRGBA[0] );
-
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR );
-
-	GLfloat fLargest;
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &fLargest);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, fLargest);
-	 	
-	glBindTexture( GL_TEXTURE_2D, 0 );
-
-	return ( m_iTexture != 0 );
 }
 
 void App::RenderControllerAxes() {
@@ -1015,11 +1014,11 @@ void App::SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_t unTrackedDe
 		return;
 
 	// try to find a model we've already set up
-	std::string sRenderModelName = GetTrackedDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_RenderModelName_String );
+	std::string sRenderModelName = getDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_RenderModelName_String );
 	CGLRenderModel *pRenderModel = FindOrLoadRenderModel( sRenderModelName.c_str() );
 	if( !pRenderModel )
 	{
-		std::string sTrackingSystemName = GetTrackedDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String );
+		std::string sTrackingSystemName = getDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String );
 		printf( "Unable to load render model for tracked device %d (%s.%s)", unTrackedDeviceIndex, sTrackingSystemName.c_str(), sRenderModelName.c_str() );
 	}
 	else
