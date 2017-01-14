@@ -18,54 +18,76 @@
 #include "Polygon.h"
 
 class App {
+private:
+	struct VertexDataScene
+	{
+		Vector3 position;
+		Vector2 texCoord;
+	};
+
+	struct VertexDataWindow
+	{
+		Vector2 position;
+		Vector2 texCoord;
+
+		VertexDataWindow(const Vector2 & pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
+	};
+
+	struct FramebufferDesc
+	{
+		GLuint depthBufferId;
+		GLuint renderTextureId;
+		GLuint renderFramebufferId;
+		GLuint resolveTextureId;
+		GLuint resolveFramebufferId;
+	};
+
 public:
 	App( int argc, char *argv[] );
 	virtual ~App();
 
-	const char *byteToBin(int x);
+	// lifecycle
 	bool init();
 	bool initGl();
-	GLuint App::loadShader(std::string name);
-	void App::regenVB();
-
 	void initDeviceModels();
-
-	void shutdown();
-
-	void mainLoop();
-	bool handleInput();
-	void processVrEvent( const vr::VREvent_t & event );
-	void renderFrame();
-
 	bool loadTextures();
-
-	void renderControllerAxes();
-
 	bool setupHmdRenderTargets();
 	void setupMonitorWindow();
 	void setupCameraMatrices();
+	void shutdown();
 
+	// rendering
+	void regenVB();
+	void mainLoop();
+	bool handleInput();
+	void renderFrame();
+	void renderControllerAxes();
 	void renderToHmd();
 	void renderToMonitorWindow();
-	void renderToEye( vr::Hmd_Eye nEye );
+	void renderToEye(vr::Hmd_Eye nEye);
+	void processVrEvent(const vr::VREvent_t & event);
 
-	std::string App::getDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
-	void ThreadSleep( unsigned long nMilliseconds );
-	void dprintf( const char *fmt, ... );
-	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);
+	// GL util
+	GLuint loadShader(std::string name);
+	GLuint compileShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader);
+	bool createShaders();
+	bool createFrameBuffer(int nWidth, int nHeight, FramebufferDesc &framebufferDesc);
 
-	Matrix4 getEyeProj( vr::Hmd_Eye nEye );
-	Matrix4 getEyePos( vr::Hmd_Eye nEye );
-	Matrix4 getEyeProjMat( vr::Hmd_Eye nEye );
+	// OpenVR Util
+	CGLRenderModel *getDeviceModel(const char *pchRenderModelName);
+	std::string getDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
+	void initDeviceModel(vr::TrackedDeviceIndex_t unTrackedDeviceIndex);
+	Matrix4 getEyeProj(vr::Hmd_Eye nEye);
+	Matrix4 getEyePos(vr::Hmd_Eye nEye);
+	Matrix4 getEyeProjMat(vr::Hmd_Eye nEye);
+	Matrix4 steamMatToMatrix4(const vr::HmdMatrix34_t &matPose);
 	void updateHmdPose();
 
-	Matrix4 ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose );
-
-	GLuint compileShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
-	bool createShaders();
-
-	void initDeviceModel( vr::TrackedDeviceIndex_t unTrackedDeviceIndex );
-	CGLRenderModel *getRenderModel( const char *pchRenderModelName );
+	// utility
+	const char *byteToBin(int x);
+	void sleep( unsigned long nMilliseconds );
+	void dprintf( const char *fmt, ... );
+	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);
 
 private: 
 
@@ -99,8 +121,6 @@ private: // OpenGL bookkeeping
 	std::string poseClasses;								// what classes we saw poses for this frame TODO: Kill this
 	char classForDeviceIdx[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
-	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
-	
 	GLuint brickTextureId;
 
 	unsigned int sceneVertCount;
@@ -120,23 +140,8 @@ private: // OpenGL bookkeeping
 	Matrix4 leftEyePos;
 	Matrix4 rightEyePos;
 
-	Matrix4 m_mat4ProjectionCenter;
 	Matrix4 leftEyeProj;
 	Matrix4 rightEyeProj;
-
-	struct VertexDataScene
-	{
-		Vector3 position;
-		Vector2 texCoord;
-	};
-
-	struct VertexDataWindow
-	{
-		Vector2 position;
-		Vector2 texCoord;
-
-		VertexDataWindow( const Vector2 & pos, const Vector2 tex ) :  position(pos), texCoord(tex) {	}
-	};
 
 	GLuint sceneShader;
 	GLuint monitorWindowShader;
@@ -147,22 +152,12 @@ private: // OpenGL bookkeeping
 	GLint controllerShaderMatrix;
 	GLint renderModelShaderMatrix;
 
-	struct FramebufferDesc
-	{
-		GLuint m_nDepthBufferId;
-		GLuint m_nRenderTextureId;
-		GLuint m_nRenderFramebufferId;
-		GLuint m_nResolveTextureId;
-		GLuint m_nResolveFramebufferId;
-	};
 	FramebufferDesc leftEyeDesc;
 	FramebufferDesc rightEyeDesc;
 
-	bool createFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebufferDesc );
-	
 	uint32_t hmdRenderWidth;
 	uint32_t hmdRenderHeight;
 
-	std::vector< CGLRenderModel * > m_vecRenderModels;
-	CGLRenderModel *deviceModel[ vr::k_unMaxTrackedDeviceCount ];
+	std::vector< CGLRenderModel * > modelInventory;
+	CGLRenderModel *trackedDeviceModels[ vr::k_unMaxTrackedDeviceCount ];
 };

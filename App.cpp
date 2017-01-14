@@ -20,7 +20,6 @@ App::App( int argc, char *argv[] ) {
 	sceneShaderMatrix = -1;
 	controllerShaderMatrix = -1;
 	renderModelShaderMatrix = -1;
-	m_iSceneVolumeInit = 20;
 	poseClasses = "";
 	buttonPressed = false;
 	currentPolygon = nullptr;
@@ -210,9 +209,9 @@ void App::renderFrame() {
 		renderToHmd();
 		renderToMonitorWindow();
 
-		vr::Texture_t leftEyeTexture = { (void*)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+		vr::Texture_t leftEyeTexture = { (void*)leftEyeDesc.resolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
-		vr::Texture_t rightEyeTexture = { (void*)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+		vr::Texture_t rightEyeTexture = { (void*)rightEyeDesc.resolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
 		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
 	}
 
@@ -332,15 +331,15 @@ void App::renderToHmd() {
 	glEnable(GL_MULTISAMPLE);
 
 	// Left Eye
-	glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight);
 	renderToEye(vr::Eye_Left);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glDisable(GL_MULTISAMPLE);
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.renderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.resolveFramebufferId);
 
 	glBlitFramebuffer(0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
@@ -350,15 +349,15 @@ void App::renderToHmd() {
 	glEnable(GL_MULTISAMPLE);
 
 	// Right Eye
-	glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight);
 	renderToEye(vr::Eye_Right);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glDisable(GL_MULTISAMPLE);
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId);
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.renderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.resolveFramebufferId);
 
 	glBlitFramebuffer(0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
 
@@ -390,7 +389,7 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 	// ----- Render Model rendering -----
 	glUseProgram(renderModelShader);
 	for (uint32_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
-		if (!deviceModel[deviceIdx] || !showDevice[deviceIdx])
+		if (!trackedDeviceModels[deviceIdx] || !showDevice[deviceIdx])
 			continue;
 		const vr::TrackedDevicePose_t & pose = devicePose[deviceIdx];
 		if (!pose.bPoseIsValid)
@@ -401,7 +400,7 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 		const Matrix4 & matDeviceToTracking = devicePoseMat[deviceIdx];
 		Matrix4 matMVP = getEyeProjMat(eye) * matDeviceToTracking;
 		glUniformMatrix4fv(renderModelShaderMatrix, 1, GL_FALSE, matMVP.get());
-		deviceModel[deviceIdx]->Draw();
+		trackedDeviceModels[deviceIdx]->Draw();
 	}
 
 	glUseProgram(0);
@@ -426,7 +425,7 @@ void App::renderToMonitorWindow()
 	glUseProgram(monitorWindowShader);
 
 	// render left eye (first half of index array )
-	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId);
+	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.resolveTextureId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -434,7 +433,7 @@ void App::renderToMonitorWindow()
 	glDrawElements(GL_TRIANGLES, monitorWinIdxSize / 2, GL_UNSIGNED_SHORT, 0);
 
 	// render right eye (second half of index array )
-	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId);
+	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.resolveTextureId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -454,7 +453,7 @@ void App::updateHmdPose() {
 	poseClasses = "";
 	for (int deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
 		if (devicePose[deviceIdx].bPoseIsValid) {
-			devicePoseMat[deviceIdx] = ConvertSteamVRMatrixToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
+			devicePoseMat[deviceIdx] = steamMatToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
 			if (classForDeviceIdx[deviceIdx] == 0) {
 				switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
 					case vr::TrackedDeviceClass_Controller:        classForDeviceIdx[deviceIdx] = 'C'; break;
@@ -771,28 +770,28 @@ bool App::setupHmdRenderTargets() {
 }
 
 bool App::createFrameBuffer(int width, int height, FramebufferDesc &framebufferDesc) {
-	glGenFramebuffers(1, &framebufferDesc.m_nRenderFramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nRenderFramebufferId);
+	glGenFramebuffers(1, &framebufferDesc.renderFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.renderFramebufferId);
 
-	glGenRenderbuffers(1, &framebufferDesc.m_nDepthBufferId);
-	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
+	glGenRenderbuffers(1, &framebufferDesc.depthBufferId);
+	glBindRenderbuffer(GL_RENDERBUFFER, framebufferDesc.depthBufferId);
 	glRenderbufferStorageMultisample(GL_RENDERBUFFER, 4, GL_DEPTH_COMPONENT, width, height);
-	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.m_nDepthBufferId);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebufferDesc.depthBufferId);
 
-	glGenTextures(1, &framebufferDesc.m_nRenderTextureId);
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId);
+	glGenTextures(1, &framebufferDesc.renderTextureId);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId);
 	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGBA8, width, height, true);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.m_nRenderTextureId, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, framebufferDesc.renderTextureId, 0);
 
-	glGenFramebuffers(1, &framebufferDesc.m_nResolveFramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.m_nResolveFramebufferId);
+	glGenFramebuffers(1, &framebufferDesc.resolveFramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebufferDesc.resolveFramebufferId);
 
-	glGenTextures(1, &framebufferDesc.m_nResolveTextureId);
-	glBindTexture(GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId);
+	glGenTextures(1, &framebufferDesc.resolveTextureId);
+	glBindTexture(GL_TEXTURE_2D, framebufferDesc.resolveTextureId);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.m_nResolveTextureId, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferDesc.resolveTextureId, 0);
 
 	// check FBO status
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
@@ -853,7 +852,7 @@ void App::setupMonitorWindow() {
 }
 
 void App::initDeviceModels() {
-	memset(deviceModel, 0, sizeof(deviceModel));
+	memset(trackedDeviceModels, 0, sizeof(trackedDeviceModels));
 	if (!hmd)
 		return;
 
@@ -870,7 +869,7 @@ void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
 
 	// try to find a model we've already set up
 	std::string modelName = getDeviceString(hmd, deviceIdx, vr::Prop_RenderModelName_String);
-	CGLRenderModel *renderModel = getRenderModel(modelName.c_str());
+	CGLRenderModel *renderModel = getDeviceModel(modelName.c_str());
 	if (!renderModel)
 	{
 		std::string sTrackingSystemName = getDeviceString(hmd, deviceIdx, vr::Prop_TrackingSystemName_String);
@@ -878,16 +877,16 @@ void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
 	}
 	else
 	{
-		deviceModel[deviceIdx] = renderModel;
+		trackedDeviceModels[deviceIdx] = renderModel;
 		showDevice[deviceIdx] = true;
 	}
 }
 
-CGLRenderModel *App::getRenderModel(const char *modelName) {
+CGLRenderModel *App::getDeviceModel(const char *modelName) {
 
 	// Find model
 	CGLRenderModel *renderModel = NULL;
-	for (std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++) {
+	for (std::vector< CGLRenderModel * >::iterator i = modelInventory.begin(); i != modelInventory.end(); i++) {
 		if (!stricmp((*i)->GetName().c_str(), modelName)) {
 			renderModel = *i;
 			break;
@@ -904,7 +903,7 @@ CGLRenderModel *App::getRenderModel(const char *modelName) {
 		error = vr::VRRenderModels()->LoadRenderModel_Async(modelName, &model);
 		if (error != vr::VRRenderModelError_Loading)
 			break;
-		ThreadSleep(1);
+		sleep(1);
 	}
 	if (error != vr::VRRenderModelError_None) {
 		printf("Unable to load render model %s - %s\n", modelName, vr::VRRenderModels()->GetRenderModelErrorNameFromEnum(error));
@@ -917,7 +916,7 @@ CGLRenderModel *App::getRenderModel(const char *modelName) {
 		error = vr::VRRenderModels()->LoadTexture_Async(model->diffuseTextureId, &texture);
 		if (error != vr::VRRenderModelError_Loading)
 			break;
-		ThreadSleep(1);
+		sleep(1);
 	}
 	if (error != vr::VRRenderModelError_None) {
 		printf("Unable to load render texture id:%d for render model %s\n", model->diffuseTextureId, modelName);
@@ -932,7 +931,7 @@ CGLRenderModel *App::getRenderModel(const char *modelName) {
 		delete renderModel;
 		renderModel = NULL;
 	} else {
-		m_vecRenderModels.push_back(renderModel);
+		modelInventory.push_back(renderModel);
 	}
 	vr::VRRenderModels()->FreeRenderModel(model);
 	vr::VRRenderModels()->FreeTexture(texture);
@@ -941,12 +940,12 @@ CGLRenderModel *App::getRenderModel(const char *modelName) {
 }
 
 // --------------------------------- ???? ------------------------------------
-void App::ThreadSleep( unsigned long nMilliseconds )
+void App::sleep( unsigned long millis )
 {
 #if defined(_WIN32)
-	::Sleep( nMilliseconds );
+	::Sleep( millis );
 #elif defined(POSIX)
-	usleep( nMilliseconds * 1000 );
+	usleep(millis * 1000 );
 #endif
 }
 
@@ -955,8 +954,7 @@ void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum s
 	printf( "GL Error: %s\n", message );
 }
 
-Matrix4 App::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose )
-{
+Matrix4 App::steamMatToMatrix4( const vr::HmdMatrix34_t &matPose ) {
 	Matrix4 matrixObj(
 		matPose.m[0][0], matPose.m[1][0], matPose.m[2][0], 0.0,
 		matPose.m[0][1], matPose.m[1][1], matPose.m[2][1], 0.0,
@@ -972,13 +970,12 @@ void App::shutdown() {
 		hmd = NULL;
 	}
 
-	for( std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++ ) {
+	for( std::vector< CGLRenderModel * >::iterator i = modelInventory.begin(); i != modelInventory.end(); i++ ) {
 		delete (*i);
 	}
-	m_vecRenderModels.clear();
+	modelInventory.clear();
 	
-	if( monitorGlContext )
-	{
+	if( monitorGlContext ) {
 		glDebugMessageControl( GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE );
 		glDebugMessageCallback(nullptr, nullptr);
 		
@@ -988,50 +985,37 @@ void App::shutdown() {
 		}
 
 		if ( sceneShader )
-		{
 			glDeleteProgram( sceneShader );
-		}
 		if ( controllerShader )
-		{
 			glDeleteProgram( controllerShader );
-		}
 		if ( renderModelShader )
-		{
 			glDeleteProgram( renderModelShader );
-		}
 		if ( monitorWindowShader )
-		{
 			glDeleteProgram( monitorWindowShader );
-		}
 
-		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
-		glDeleteTextures( 1, &leftEyeDesc.m_nRenderTextureId );
-		glDeleteFramebuffers( 1, &leftEyeDesc.m_nRenderFramebufferId );
-		glDeleteTextures( 1, &leftEyeDesc.m_nResolveTextureId );
-		glDeleteFramebuffers( 1, &leftEyeDesc.m_nResolveFramebufferId );
+		glDeleteRenderbuffers( 1, &leftEyeDesc.depthBufferId );
+		glDeleteTextures( 1, &leftEyeDesc.renderTextureId );
+		glDeleteFramebuffers( 1, &leftEyeDesc.renderFramebufferId );
+		glDeleteTextures( 1, &leftEyeDesc.resolveTextureId );
+		glDeleteFramebuffers( 1, &leftEyeDesc.resolveFramebufferId );
 
-		glDeleteRenderbuffers( 1, &rightEyeDesc.m_nDepthBufferId );
-		glDeleteTextures( 1, &rightEyeDesc.m_nRenderTextureId );
-		glDeleteFramebuffers( 1, &rightEyeDesc.m_nRenderFramebufferId );
-		glDeleteTextures( 1, &rightEyeDesc.m_nResolveTextureId );
-		glDeleteFramebuffers( 1, &rightEyeDesc.m_nResolveFramebufferId );
+		glDeleteRenderbuffers( 1, &rightEyeDesc.depthBufferId );
+		glDeleteTextures( 1, &rightEyeDesc.renderTextureId );
+		glDeleteFramebuffers( 1, &rightEyeDesc.renderFramebufferId );
+		glDeleteTextures( 1, &rightEyeDesc.resolveTextureId );
+		glDeleteFramebuffers( 1, &rightEyeDesc.resolveFramebufferId );
 
 		if( monitorWinVertAr != 0 )
-		{
 			glDeleteVertexArrays( 1, &monitorWinVertAr );
-		}
 		if( sceneVertexAr != 0 ) {
 			glDeleteVertexArrays( 1, &sceneVertexAr );
 			sceneVertexAr = 0;
 		}
 		if( controllerVertAr != 0 )
-		{
 			glDeleteVertexArrays( 1, &controllerVertAr );
-		}
 	}
 
-	if( monitorWindow )
-	{
+	if( monitorWindow )	{
 		SDL_DestroyWindow(monitorWindow);
 		monitorWindow = NULL;
 	}
