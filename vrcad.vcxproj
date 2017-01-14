@@ -176,6 +176,12 @@
     <ClCompile Include="vrcad.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\ControllerShader.frag" />
+    <None Include="assets\controllerShader.vert" />
+    <None Include="assets\MonitorWindowShader.frag" />
+    <None Include="assets\MonitorWindowShader.vert" />
+    <None Include="assets\RenderModelShader.frag" />
+    <None Include="assets\RenderModelShader.vert" />
     <None Include="assets\sceneShader.frag" />
     <None Include="assets\sceneShader.vert" />
   </ItemGroup>

@@ -25,6 +25,7 @@ public:
 	const char *byte_to_binary(int x);
 	bool init();
 	bool initGl();
+	GLuint App::loadShader(std::string name);
 	bool BInitCompositor();
 	void App::RegenVB();
 

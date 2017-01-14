@@ -123,113 +123,43 @@ bool App::initGl() {
 	return true;
 }
 
-bool App::createShaders()
-{
-	std::string sExecutableDirectory = Path_StripFilename(Path_GetExecutablePath());
-	std::string vertPath = Path_MakeAbsolute("../assets/sceneShader.vert", sExecutableDirectory);
-	std::string fragPath = Path_MakeAbsolute("../assets/sceneShader.frag", sExecutableDirectory);
+GLuint App::loadShader(std::string name) {
+	std::string prefix("../assets/");
+	std::string pwd = Path_StripFilename(Path_GetExecutablePath());
+	std::string vertPath = Path_MakeAbsolute(prefix + name + "Shader.vert", pwd);
+	std::string fragPath = Path_MakeAbsolute(prefix + name + "Shader.frag", pwd);
 	std::string sceneVert((std::istreambuf_iterator<char>(std::ifstream(vertPath))), std::istreambuf_iterator<char>());
 	std::string sceneFrag((std::istreambuf_iterator<char>(std::ifstream(fragPath))), std::istreambuf_iterator<char>());
 
-	sceneShader = CompileGLShader(
-		"Scene",
-		sceneVert.c_str(),
-		sceneFrag.c_str()
-	);
+	GLuint id = CompileGLShader(name.c_str(), sceneVert.c_str(), sceneFrag.c_str());
+
+	return id;
+}
+
+bool App::createShaders()
+{
+	sceneShader = loadShader("Scene");
 	sceneShaderMatrix = glGetUniformLocation(sceneShader, "matrix");
 	if (sceneShaderMatrix == -1) {
 		printf("Unable to find matrix uniform in scene shader\n");
 		return false;
 	}
 
-	controllerShader = CompileGLShader(
-		"Controller",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3ColorIn;\n"
-		"out vec4 v4Color;\n"
-		"void main()\n"
-		"{\n"
-		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410\n"
-		"in vec4 v4Color;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = v4Color;\n"
-		"}\n"
-	);
+	controllerShader = loadShader("Controller");
 	controllerShaderMatrix = glGetUniformLocation(controllerShader, "matrix");
 	if (controllerShaderMatrix == -1) {
 		printf("Unable to find matrix uniform in controller shader\n");
 		return false;
 	}
 
-	renderModelShader = CompileGLShader(
-		"render model",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3NormalIn;\n"
-		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
-		"out vec2 v2TexCoord;\n"
-		"void main()\n"
-		"{\n"
-		"	v2TexCoord = v2TexCoordsIn;\n"
-		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
-		"}\n",
-
-		//fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n"
-		"in vec2 v2TexCoord;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture( diffuse, v2TexCoord);\n"
-		"}\n"
-
-	);
+	renderModelShader = loadShader("RenderModel");
 	renderModelShaderMatrix = glGetUniformLocation(renderModelShader, "matrix");
-	if (renderModelShaderMatrix == -1)
-	{
+	if (renderModelShaderMatrix == -1) {
 		printf("Unable to find matrix uniform in render model shader\n");
 		return false;
 	}
 
-	monitorWindowShader = CompileGLShader(
-		"CompanionWindow",
-
-		// vertex shader
-		"#version 410 core\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVIn;\n"
-		"noperspective out vec2 v2UV;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UV = v2UVIn;\n"
-		"	gl_Position = position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"noperspective in vec2 v2UV;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"		outputColor = texture(mytexture, v2UV);\n"
-		"}\n"
-	);
+	monitorWindowShader = loadShader("MonitorWindow");
 
 	return sceneShader != 0
 		&& controllerShader != 0
