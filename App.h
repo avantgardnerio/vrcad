@@ -91,11 +91,11 @@ private:
 	bool m_rbShowTrackedDevice[ vr::k_unMaxTrackedDeviceCount ];
 
 private: // SDL bookkeeping
-	SDL_Window *m_pCompanionWindow;
+	SDL_Window *monitorWindow;
 	uint32_t m_nCompanionWindowWidth;
 	uint32_t m_nCompanionWindowHeight;
 
-	SDL_GLContext m_pContext;
+	SDL_GLContext monitorGlContext;
 
 private: // OpenGL bookkeeping
 	int m_iTrackedControllerCount;
@@ -106,17 +106,8 @@ private: // OpenGL bookkeeping
 	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
 	char m_rDevClassChar[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
-	int m_iSceneVolumeWidth;
-	int m_iSceneVolumeHeight;
-	int m_iSceneVolumeDepth;
-	float m_fScaleSpacing;
-	float m_fScale;
-	
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
 	
-	float m_fNearClip;
-	float m_fFarClip;
-
 	GLuint m_iTexture;
 
 	unsigned int m_uiVertcount;

@@ -1,8 +1,8 @@
 #include "App.h"
 
 App::App( int argc, char *argv[] ) {
-	m_pCompanionWindow = NULL;
-	m_pContext = NULL;
+	monitorWindow = NULL;
+	monitorGlContext = NULL;
 	m_nCompanionWindowWidth = 640;
 	m_nCompanionWindowHeight = 320;
 	m_unSceneProgramID = 0;
@@ -53,58 +53,43 @@ bool App::init() {
 		return false;
 	}
 
-	int nWindowPosX = 700;
-	int nWindowPosY = 100;
-	Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-
+	// Setup SDL & Monitor window
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
 
-	m_pCompanionWindow = SDL_CreateWindow("hellovr", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags);
-	if (m_pCompanionWindow == NULL) {
+	int windowPosX = 700;
+	int windowPosY = 100;
+	Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+	monitorWindow = SDL_CreateWindow("hellovr", windowPosX, windowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags);
+	if (monitorWindow == NULL) {
 		printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
 		return false;
 	}
-
-	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
-	if (m_pContext == NULL) {
+	monitorGlContext = SDL_GL_CreateContext(monitorWindow);
+	if (monitorGlContext == NULL) {
 		printf("%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
 		return false;
 	}
 
+	// Setup glew
 	glewExperimental = GL_TRUE;
-	GLenum nGlewError = glewInit();
-	if (nGlewError != GLEW_OK) {
-		printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(nGlewError));
+	GLenum glewError = glewInit();
+	if (glewError != GLEW_OK) {
+		printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(glewError));
 		return false;
 	}
 	glGetError(); // to clear the error caused deep in GLEW
 
-	m_strDriver = "No Driver";
-	m_strDisplay = "No Display";
-
+	// Setup openvr
 	m_strDriver = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
 	m_strDisplay = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
-
 	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
-	SDL_SetWindowTitle(m_pCompanionWindow, strWindowTitle.c_str());
+	SDL_SetWindowTitle(monitorWindow, strWindowTitle.c_str());
 
 	// cube array
-	m_iSceneVolumeWidth = m_iSceneVolumeInit;
-	m_iSceneVolumeHeight = m_iSceneVolumeInit;
-	m_iSceneVolumeDepth = m_iSceneVolumeInit;
-
-	m_fScale = 10.0f;
-	m_fScaleSpacing = 8.0f;
-
-	m_fNearClip = 0.1f;
-	m_fFarClip = 30.0f;
-
 	m_iTexture = 0;
 	m_uiVertcount = 0;
 
@@ -384,7 +369,7 @@ void App::RenderFrame()
 
 	// SwapWindow
 	{
-		SDL_GL_SwapWindow( m_pCompanionWindow );
+		SDL_GL_SwapWindow( monitorWindow );
 	}
 
 	// Clear
@@ -960,7 +945,9 @@ Matrix4 App::GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye )
 	if ( !hmd )
 		return Matrix4();
 
-	vr::HmdMatrix44_t mat = hmd->GetProjectionMatrix( nEye, m_fNearClip, m_fFarClip );
+	float nearClip = 0.1f;
+	float farClip = 30.0f;
+	vr::HmdMatrix44_t mat = hmd->GetProjectionMatrix( nEye, nearClip, farClip);
 
 	return Matrix4(
 		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
@@ -1167,7 +1154,7 @@ void App::Shutdown()
 	}
 	m_vecRenderModels.clear();
 	
-	if( m_pContext )
+	if( monitorGlContext )
 	{
 		glDebugMessageControl( GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE );
 		glDebugMessageCallback(nullptr, nullptr);
@@ -1220,10 +1207,10 @@ void App::Shutdown()
 		}
 	}
 
-	if( m_pCompanionWindow )
+	if( monitorWindow )
 	{
-		SDL_DestroyWindow(m_pCompanionWindow);
-		m_pCompanionWindow = NULL;
+		SDL_DestroyWindow(monitorWindow);
+		monitorWindow = NULL;
 	}
 
 	SDL_Quit();
