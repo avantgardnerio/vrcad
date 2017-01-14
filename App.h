@@ -24,7 +24,7 @@ public:
 
 	const char *byte_to_binary(int x);
 	bool init();
-	bool BInitGL();
+	bool initGl();
 	bool BInitCompositor();
 	void App::RegenVB();
 
@@ -62,7 +62,7 @@ public:
 	Matrix4 ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose );
 
 	GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
-	bool CreateAllShaders();
+	bool createShaders();
 
 	void SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_t unTrackedDeviceIndex );
 	CGLRenderModel *FindOrLoadRenderModel( const char *pchRenderModelName );
@@ -145,14 +145,14 @@ private: // OpenGL bookkeeping
 		VertexDataWindow( const Vector2 & pos, const Vector2 tex ) :  position(pos), texCoord(tex) {	}
 	};
 
-	GLuint m_unSceneProgramID;
-	GLuint m_unCompanionWindowProgramID;
-	GLuint m_unControllerTransformProgramID;
-	GLuint m_unRenderModelProgramID;
+	GLuint sceneShader;
+	GLuint monitorWindowShader;
+	GLuint controllerShader;
+	GLuint renderModelShader;
 
-	GLint m_nSceneMatrixLocation;
-	GLint m_nControllerMatrixLocation;
-	GLint m_nRenderModelMatrixLocation;
+	GLint sceneShaderMatrix;
+	GLint controllerShaderMatrix;
+	GLint renderModelShaderMatrix;
 
 	struct FramebufferDesc
 	{

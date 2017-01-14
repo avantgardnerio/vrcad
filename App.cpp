@@ -5,18 +5,18 @@ App::App( int argc, char *argv[] ) {
 	monitorGlContext = NULL;
 	m_nCompanionWindowWidth = 640;
 	m_nCompanionWindowHeight = 320;
-	m_unSceneProgramID = 0;
-	m_unCompanionWindowProgramID = 0;
-	m_unControllerTransformProgramID = 0;
-	m_unRenderModelProgramID = 0;
+	sceneShader = 0;
+	monitorWindowShader = 0;
+	controllerShader = 0;
+	renderModelShader = 0;
 	hmd = NULL;
 	m_bPerf = false;
 	m_glControllerVertBuffer = 0;
 	m_unControllerVAO = 0;
 	m_unSceneVAO = 0;
-	m_nSceneMatrixLocation = -1;
-	m_nControllerMatrixLocation = -1;
-	m_nRenderModelMatrixLocation = -1;
+	sceneShaderMatrix = -1;
+	controllerShaderMatrix = -1;
+	renderModelShaderMatrix = -1;
 	m_iTrackedControllerCount = 0;
 	m_iTrackedControllerCount_Last = -1;
 	m_iValidPoseCount = 0;
@@ -93,7 +93,7 @@ bool App::init() {
 	m_iTexture = 0;
 	m_uiVertcount = 0;
 
-	if (!BInitGL()) {
+	if (!initGl()) {
 		printf("%s - Unable to initialize OpenGL!\n", __FUNCTION__);
 		return false;
 	}
@@ -102,8 +102,149 @@ bool App::init() {
 		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
 		return false;
 	}
-
+	 
 	return true;
+}
+
+bool App::initGl() {
+	if (!createShaders())
+		return false;
+
+	SetupTexturemaps();
+	SetupCameras();
+	SetupStereoRenderTargets();
+	SetupCompanionWindow();
+	SetupRenderModels();
+	  
+	return true;
+}
+
+bool App::createShaders()
+{
+	sceneShader = CompileGLShader(
+		"Scene",
+
+		// Vertex Shader
+		"#version 410\n"
+		"uniform mat4 matrix;\n"
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
+		"out vec2 v2UVcoords;\n"
+		"void main()\n"
+		"{\n"
+		"	v2UVcoords = v2UVcoordsIn;\n"
+		"	gl_Position = matrix * position;\n"
+		"}\n",
+
+		// Fragment Shader
+		"#version 410 core\n"
+		"uniform sampler2D mytexture;\n"
+		"in vec2 v2UVcoords;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = texture(mytexture, v2UVcoords);\n"
+		"}\n"
+	);
+	sceneShaderMatrix = glGetUniformLocation(sceneShader, "matrix");
+	if (sceneShaderMatrix == -1) {
+		printf("Unable to find matrix uniform in scene shader\n");
+		return false;
+	}
+
+	controllerShader = CompileGLShader(
+		"Controller",
+
+		// vertex shader
+		"#version 410\n"
+		"uniform mat4 matrix;\n"
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec3 v3ColorIn;\n"
+		"out vec4 v4Color;\n"
+		"void main()\n"
+		"{\n"
+		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
+		"	gl_Position = matrix * position;\n"
+		"}\n",
+
+		// fragment shader
+		"#version 410\n"
+		"in vec4 v4Color;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = v4Color;\n"
+		"}\n"
+	);
+	controllerShaderMatrix = glGetUniformLocation(controllerShader, "matrix");
+	if (controllerShaderMatrix == -1) {
+		printf("Unable to find matrix uniform in controller shader\n");
+		return false;
+	}
+
+	renderModelShader = CompileGLShader(
+		"render model",
+
+		// vertex shader
+		"#version 410\n"
+		"uniform mat4 matrix;\n"
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec3 v3NormalIn;\n"
+		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
+		"out vec2 v2TexCoord;\n"
+		"void main()\n"
+		"{\n"
+		"	v2TexCoord = v2TexCoordsIn;\n"
+		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
+		"}\n",
+
+		//fragment shader
+		"#version 410 core\n"
+		"uniform sampler2D diffuse;\n"
+		"in vec2 v2TexCoord;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"   outputColor = texture( diffuse, v2TexCoord);\n"
+		"}\n"
+
+	);
+	renderModelShaderMatrix = glGetUniformLocation(renderModelShader, "matrix");
+	if (renderModelShaderMatrix == -1)
+	{
+		printf("Unable to find matrix uniform in render model shader\n");
+		return false;
+	}
+
+	monitorWindowShader = CompileGLShader(
+		"CompanionWindow",
+
+		// vertex shader
+		"#version 410 core\n"
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec2 v2UVIn;\n"
+		"noperspective out vec2 v2UV;\n"
+		"void main()\n"
+		"{\n"
+		"	v2UV = v2UVIn;\n"
+		"	gl_Position = position;\n"
+		"}\n",
+
+		// fragment shader
+		"#version 410 core\n"
+		"uniform sampler2D mytexture;\n"
+		"noperspective in vec2 v2UV;\n"
+		"out vec4 outputColor;\n"
+		"void main()\n"
+		"{\n"
+		"		outputColor = texture(mytexture, v2UV);\n"
+		"}\n"
+	);
+
+	return sceneShader != 0
+		&& controllerShader != 0
+		&& renderModelShader != 0
+		&& monitorWindowShader != 0;
 }
 
 std::string App::GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError )
@@ -131,20 +272,6 @@ void App::ThreadSleep( unsigned long nMilliseconds )
 void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf( "GL Error: %s\n", message );
-}
-
-bool App::BInitGL()
-{
-	if( !CreateAllShaders() )
-		return false;
-
-	SetupTexturemaps();
-	SetupCameras();
-	SetupStereoRenderTargets();
-	SetupCompanionWindow();
-	SetupRenderModels();
-
-	return true;
 }
 
 bool App::BInitCompositor()
@@ -446,136 +573,6 @@ GLuint App::CompileGLShader( const char *pchShaderName, const char *pchVertexSha
 	return unProgramID;
 }
 
-bool App::CreateAllShaders()
-{
-	m_unSceneProgramID = CompileGLShader( 
-		"Scene",
-
-		// Vertex Shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVcoordsIn;\n"
-		"out vec2 v2UVcoords;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UVcoords = v2UVcoordsIn;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// Fragment Shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"in vec2 v2UVcoords;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture(mytexture, v2UVcoords);\n"
-		"}\n"
-		);
-	m_nSceneMatrixLocation = glGetUniformLocation( m_unSceneProgramID, "matrix" );
-	if( m_nSceneMatrixLocation == -1 )
-	{
-		printf( "Unable to find matrix uniform in scene shader\n" );
-		return false;
-	}
-
-	m_unControllerTransformProgramID = CompileGLShader(
-		"Controller",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3ColorIn;\n"
-		"out vec4 v4Color;\n"
-		"void main()\n"
-		"{\n"
-		"	v4Color.xyz = v3ColorIn; v4Color.a = 1.0;\n"
-		"	gl_Position = matrix * position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410\n"
-		"in vec4 v4Color;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = v4Color;\n"
-		"}\n"
-		);
-	m_nControllerMatrixLocation = glGetUniformLocation( m_unControllerTransformProgramID, "matrix" );
-	if( m_nControllerMatrixLocation == -1 )
-	{
-		printf( "Unable to find matrix uniform in controller shader\n" );
-		return false;
-	}
-
-	m_unRenderModelProgramID = CompileGLShader( 
-		"render model",
-
-		// vertex shader
-		"#version 410\n"
-		"uniform mat4 matrix;\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec3 v3NormalIn;\n"
-		"layout(location = 2) in vec2 v2TexCoordsIn;\n"
-		"out vec2 v2TexCoord;\n"
-		"void main()\n"
-		"{\n"
-		"	v2TexCoord = v2TexCoordsIn;\n"
-		"	gl_Position = matrix * vec4(position.xyz, 1);\n"
-		"}\n",
-
-		//fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D diffuse;\n"
-		"in vec2 v2TexCoord;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"   outputColor = texture( diffuse, v2TexCoord);\n"
-		"}\n"
-
-		);
-	m_nRenderModelMatrixLocation = glGetUniformLocation( m_unRenderModelProgramID, "matrix" );
-	if( m_nRenderModelMatrixLocation == -1 )
-	{
-		printf( "Unable to find matrix uniform in render model shader\n" );
-		return false;
-	}
-
-	m_unCompanionWindowProgramID = CompileGLShader(
-		"CompanionWindow",
-
-		// vertex shader
-		"#version 410 core\n"
-		"layout(location = 0) in vec4 position;\n"
-		"layout(location = 1) in vec2 v2UVIn;\n"
-		"noperspective out vec2 v2UV;\n"
-		"void main()\n"
-		"{\n"
-		"	v2UV = v2UVIn;\n"
-		"	gl_Position = position;\n"
-		"}\n",
-
-		// fragment shader
-		"#version 410 core\n"
-		"uniform sampler2D mytexture;\n"
-		"noperspective in vec2 v2UV;\n"
-		"out vec4 outputColor;\n"
-		"void main()\n"
-		"{\n"
-		"		outputColor = texture(mytexture, v2UV);\n"
-		"}\n"
-		);
-
-	return m_unSceneProgramID != 0 
-		&& m_unControllerTransformProgramID != 0
-		&& m_unRenderModelProgramID != 0
-		&& m_unCompanionWindowProgramID != 0;
-}
-
 bool App::SetupTexturemaps()
 {
 	std::string sExecutableDirectory = Path_StripFilename( Path_GetExecutablePath() );
@@ -868,8 +865,8 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
-	glUseProgram( m_unSceneProgramID );
-	glUniformMatrix4fv( m_nSceneMatrixLocation, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
+	glUseProgram( sceneShader );
+	glUniformMatrix4fv( sceneShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
 	glBindVertexArray( m_unSceneVAO );
 	glBindTexture( GL_TEXTURE_2D, m_iTexture );
 	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
@@ -880,15 +877,15 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 	if( !inputCapturedByAnotherProcess )
 	{
 		// draw the controller axis lines
-		glUseProgram( m_unControllerTransformProgramID );
-		glUniformMatrix4fv( m_nControllerMatrixLocation, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
+		glUseProgram( controllerShader );
+		glUniformMatrix4fv( controllerShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
 		glBindVertexArray( m_unControllerVAO );
 		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
 		glBindVertexArray( 0 );
 	}
 
 	// ----- Render Model rendering -----
-	glUseProgram( m_unRenderModelProgramID );
+	glUseProgram( renderModelShader );
 
 	for( uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++ )
 	{
@@ -904,7 +901,7 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 
 		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unTrackedDevice ];
 		Matrix4 matMVP = GetCurrentViewProjectionMatrix( nEye ) * matDeviceToTracking;
-		glUniformMatrix4fv( m_nRenderModelMatrixLocation, 1, GL_FALSE, matMVP.get() );
+		glUniformMatrix4fv( renderModelShaderMatrix, 1, GL_FALSE, matMVP.get() );
 
 		m_rTrackedDeviceToRenderModel[ unTrackedDevice ]->Draw();
 	}
@@ -918,7 +915,7 @@ void App::RenderCompanionWindow()
 	glViewport( 0, 0, m_nCompanionWindowWidth, m_nCompanionWindowHeight );
 
 	glBindVertexArray( m_unCompanionWindowVAO );
-	glUseProgram( m_unCompanionWindowProgramID );
+	glUseProgram( monitorWindowShader );
 
 	// render left eye (first half of index array )
 	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
@@ -1164,21 +1161,21 @@ void App::Shutdown()
 			m_glSceneVertBuffer = 0;
 		}
 
-		if ( m_unSceneProgramID )
+		if ( sceneShader )
 		{
-			glDeleteProgram( m_unSceneProgramID );
+			glDeleteProgram( sceneShader );
 		}
-		if ( m_unControllerTransformProgramID )
+		if ( controllerShader )
 		{
-			glDeleteProgram( m_unControllerTransformProgramID );
+			glDeleteProgram( controllerShader );
 		}
-		if ( m_unRenderModelProgramID )
+		if ( renderModelShader )
 		{
-			glDeleteProgram( m_unRenderModelProgramID );
+			glDeleteProgram( renderModelShader );
 		}
-		if ( m_unCompanionWindowProgramID )
+		if ( monitorWindowShader )
 		{
-			glDeleteProgram( m_unCompanionWindowProgramID );
+			glDeleteProgram( monitorWindowShader );
 		}
 
 		glDeleteRenderbuffers( 1, &leftEyeDesc.m_nDepthBufferId );
