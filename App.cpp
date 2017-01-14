@@ -17,7 +17,7 @@ App::App( int argc, char *argv[] ) {
 	m_bPerf = false;
 	m_glControllerVertBuffer = 0;
 	m_unControllerVAO = 0;
-	m_unSceneVAO = 0;
+	sceneVertexAr = 0;
 	sceneShaderMatrix = -1;
 	controllerShaderMatrix = -1;
 	renderModelShaderMatrix = -1;
@@ -40,6 +40,199 @@ App::~App() {
 	printf( "Shutdown" );
 }
 
+// --------------------------------- main ------------------------------------
+void App::mainLoop() {
+	bool bQuit = false;
+
+	SDL_StartTextInput();
+	SDL_ShowCursor(SDL_DISABLE);
+
+	while (!bQuit) {
+		bQuit = handleInput();
+		RenderFrame();
+	}
+
+	SDL_StopTextInput();
+}
+
+bool App::handleInput() {
+	SDL_Event sdlEvent;
+	bool bRet = false;
+
+	while (SDL_PollEvent(&sdlEvent) != 0) {
+		if (sdlEvent.type == SDL_QUIT) {
+			bRet = true;
+		}
+		else if (sdlEvent.type == SDL_KEYDOWN) {
+			if (sdlEvent.key.keysym.sym == SDLK_ESCAPE || sdlEvent.key.keysym.sym == SDLK_q) {
+				bRet = true;
+			}
+		}
+	}
+
+	// Process SteamVR events
+	vr::VREvent_t event;
+	while (hmd->PollNextEvent(&event, sizeof(event))) {
+		processVrEvent(event);
+	}
+
+	// Process SteamVR controller state
+	bool anyButtonPressed = false;
+	bool dirty = false;
+	for (vr::TrackedDeviceIndex_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
+		vr::VRControllerState_t controllerState;
+		if (!hmd->GetControllerState(deviceIdx, &controllerState, sizeof(controllerState))) {
+			continue;
+		}
+		const vr::TrackedDevicePose_t & pose = devicePose[deviceIdx];
+		if (!pose.bPoseIsValid) {
+			continue;
+		}
+		if (hmd->GetTrackedDeviceClass(deviceIdx) != vr::TrackedDeviceClass_Controller) {
+			continue;
+		}
+		if (deviceIdx == 0) {
+			continue; // headset?
+		}
+		const Matrix4 & deviceToTrackingMat = devicePoseMat[deviceIdx];
+		Vector3 pnorm(0, 1, 0);
+		Vector3 pop(0, 0, 0);
+		Vector4 rayorigin = deviceToTrackingMat * Vector4(0, 0, 0, 1);
+		Vector4 raydir = deviceToTrackingMat * Vector4(0, 0, 1, 1);
+		Vector3 ro(rayorigin.x, rayorigin.y, rayorigin.z);
+		Vector3 rd(raydir.x, raydir.y, raydir.z);
+		rd -= ro;
+		rd.normalize();
+		Vector3 offset = rd;
+		float denom = pnorm.dot(rd);
+		if (fabs(denom) > 0.000001f) {
+			float t = (pop - ro).dot(pnorm) / denom;
+			if (t <= 0) {
+				Vector3 isec = ro + (rd * t);
+				isec.x = floor(isec.x * 10.0f) / 10.0f;
+				isec.z = floor(isec.z * 10.0f) / 10.0f;
+				if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
+					//printf("%s\n", byte_to_binary(state.ulButtonPressed));
+					if (currentPolygon == nullptr) {
+						currentController = deviceIdx;
+						currentPolygon = new net_squarelabs::Polygon();
+						currentPolygon->addVertex(isec);
+						currentPolygon->addVertex(isec);
+						mode = draw;
+					}
+					else {
+						if (mode == draw) {
+							if (isec == currentPolygon->getFirstVertex()) {
+								mode = extrude;
+							}
+							else {
+								currentPolygon->addVertex(isec);
+							}
+						}
+						else if (mode == extrude) {
+							polygons.push_back(*currentPolygon);
+							delete currentPolygon;
+							currentPolygon = nullptr;
+							dirty = true;
+							mode = none;
+						}
+					}
+				}
+				if (currentPolygon != nullptr && mode == draw) {
+					currentPolygon->updateLastVertex(isec);
+					dirty = true;
+				}
+			}
+		}
+		if (controllerState.ulButtonPressed != 0) {
+			anyButtonPressed = true;
+			buttonPressed = true;
+		}
+		m_rbShowTrackedDevice[deviceIdx] = controllerState.ulButtonPressed == 0;
+		for (int i = 0; i < 5; i++) {
+			float x = controllerState.rAxis[i].x;
+			float y = controllerState.rAxis[i].y;
+			if (x != 0.0f || y != 0.0f) {
+				printf("%0.3f %0.3f\n", x, y);
+			}
+		}
+	}
+	if (dirty) {
+		regenVB();
+	}
+	if (anyButtonPressed == false) {
+		buttonPressed = false;
+	}
+
+	return bRet;
+}
+
+void App::regenVB() {
+	std::vector<float> floatAr;
+
+	for (auto polygon = polygons.begin(); polygon < polygons.end(); ++polygon) {
+		polygon->addToVb(floatAr);
+	}
+
+	sceneVertCount = floatAr.size() / 5;
+	if (sceneVertexAr != 0) {
+		glDeleteVertexArrays(1, &sceneVertexAr);
+		sceneVertexAr = 0;
+	}
+	if (sceneVertBuffer) {
+		glDeleteBuffers(1, &sceneVertBuffer);
+		sceneVertBuffer = 0;
+	}
+	if (sceneVertCount == 0) {
+		return;
+	}
+
+	glGenVertexArrays(1, &sceneVertexAr);
+	glBindVertexArray(sceneVertexAr);
+
+	glGenBuffers(1, &sceneVertBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, sceneVertBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * floatAr.size(), &floatAr[0], GL_STATIC_DRAW);
+
+	GLsizei stride = sizeof(VertexDataScene);
+	uintptr_t offset = 0;
+
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+
+	offset += sizeof(Vector3);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+
+	glBindVertexArray(0);
+	glDisableVertexAttribArray(0);
+	glDisableVertexAttribArray(1);
+}
+
+
+void App::processVrEvent(const vr::VREvent_t & event) {
+	switch (event.eventType)
+	{
+		case vr::VREvent_TrackedDeviceActivated:
+			{
+				initDeviceModel(event.trackedDeviceIndex);
+				printf("Device %u attached. Setting up render model.\n", event.trackedDeviceIndex);
+			}
+			break;
+		case vr::VREvent_TrackedDeviceDeactivated:
+			{
+				printf("Device %u detached.\n", event.trackedDeviceIndex);
+			}
+			break;
+		case vr::VREvent_TrackedDeviceUpdated:
+			{
+				printf("Device %u updated.\n", event.trackedDeviceIndex);
+			}
+			break;
+	}
+}
+
+// --------------------------------- init ------------------------------------
 bool App::init() {
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
 		printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
@@ -95,7 +288,7 @@ bool App::init() {
 
 	// cube array
 	brickTextureId = 0;
-	m_uiVertcount = 0;
+	sceneVertCount = 0;
 
 	if (!initGl()) {
 		printf("%s - Unable to initialize OpenGL!\n", __FUNCTION__);
@@ -432,6 +625,7 @@ CGLRenderModel *App::getRenderModel(const char *modelName) {
 	return renderModel;
 }
 
+// --------------------------------- ???? ------------------------------------
 void App::ThreadSleep( unsigned long nMilliseconds )
 {
 #if defined(_WIN32)
@@ -444,198 +638,6 @@ void App::ThreadSleep( unsigned long nMilliseconds )
 void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf( "GL Error: %s\n", message );
-}
-
-void App::RegenVB() {
-	std::vector<float> vertdataarray;
-
-	for (auto polygon = polygons.begin(); polygon < polygons.end(); ++polygon) {  
-		polygon->addToVb(vertdataarray);
-	}	
-
-	m_uiVertcount = vertdataarray.size()/5;
-	if( m_unSceneVAO != 0 ) {
-		glDeleteVertexArrays( 1, &m_unSceneVAO );
-		m_unSceneVAO = 0;
-	}
-	if(m_glSceneVertBuffer) {
-		glDeleteBuffers(1, &m_glSceneVertBuffer);
-		m_glSceneVertBuffer = 0;
-	}
-	if(m_uiVertcount == 0) {
-		return;
-	}
-
-	glGenVertexArrays( 1, &m_unSceneVAO );
-	glBindVertexArray( m_unSceneVAO );
-
-	glGenBuffers( 1, &m_glSceneVertBuffer );
-	glBindBuffer( GL_ARRAY_BUFFER, m_glSceneVertBuffer );
-	glBufferData( GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STATIC_DRAW);
-
-	GLsizei stride = sizeof(VertexDataScene);
-	uintptr_t offset = 0;
-
-	glEnableVertexAttribArray( 0 );
-	glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, stride , (const void *)offset);
-
-	offset += sizeof(Vector3);
-	glEnableVertexAttribArray( 1 );
-	glVertexAttribPointer( 1, 2, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-	glBindVertexArray( 0 );
-	glDisableVertexAttribArray(0);
-	glDisableVertexAttribArray(1);
-}
-
-bool App::HandleInput()
-{
-	SDL_Event sdlEvent;
-	bool bRet = false;
-
-	while ( SDL_PollEvent( &sdlEvent ) != 0 ) {
-		if ( sdlEvent.type == SDL_QUIT ) {
-			bRet = true;
-		}
-		else if ( sdlEvent.type == SDL_KEYDOWN ) {
-			if ( sdlEvent.key.keysym.sym == SDLK_ESCAPE || sdlEvent.key.keysym.sym == SDLK_q ) {
-				bRet = true;
-			}
-		}
-	}
-
-	// Process SteamVR events
-	vr::VREvent_t event;
-	while( hmd->PollNextEvent( &event, sizeof( event ) ) ) {
-		ProcessVREvent( event );
-	}
-
-	// Process SteamVR controller state
-	bool anyButtonPressed = false;
-	bool dirty = false;
-	for( vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++ ) {
-		vr::VRControllerState_t state;
-		if( !hmd->GetControllerState( unDevice, &state, sizeof(state) ) ) {
-			continue;
-		}
-		const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[ unDevice ];
-		if( !pose.bPoseIsValid ) {
-			continue;
-		}
-		if( hmd->GetTrackedDeviceClass( unDevice ) != vr::TrackedDeviceClass_Controller ) {
-			continue;
-		}
-		if(unDevice == 0) {
-			continue; // headset?
-		}
-		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unDevice ];
-		Vector3 pnorm(0, 1, 0);
-		Vector3 pop(0, 0, 0);
-		Vector4 rayorigin = matDeviceToTracking * Vector4( 0, 0, 0, 1);
-		Vector4 raydir = matDeviceToTracking * Vector4(0, 0, 1, 1);
-		Vector3 ro(rayorigin.x, rayorigin.y, rayorigin.z);
-		Vector3 rd(raydir.x, raydir.y, raydir.z);
-		rd -= ro;
-		rd.normalize();
-		Vector3 offset = rd;
-		float denom = pnorm.dot(rd);
-		if (fabs(denom) > 0.000001f) {
-			float t = (pop - ro).dot(pnorm) / denom;
-			if (t <= 0) {
-				Vector3 isec = ro + (rd * t);
-				isec.x = floor(isec.x * 10.0f) / 10.0f;
-				isec.z = floor(isec.z * 10.0f) / 10.0f;
-				if(buttonPressed == false && state.ulButtonPressed & 0x200000000) {
-					//printf("%s\n", byte_to_binary(state.ulButtonPressed));
-					if(currentPolygon == nullptr) {
-						currentController = unDevice;
-						currentPolygon = new net_squarelabs::Polygon();
-						currentPolygon->addVertex(isec);
-						currentPolygon->addVertex(isec);
-						mode = draw;
-					} else {
-						if(mode == draw) {
-							if(isec == currentPolygon->getFirstVertex()) {
-								mode = extrude;
-							} else {
-								currentPolygon->addVertex(isec);
-							}
-						} else if(mode == extrude) {
-							polygons.push_back(*currentPolygon);
-							delete currentPolygon;
-							currentPolygon = nullptr;
-							dirty = true;
-							mode = none;
-						}
-					}
-				}
-				if(currentPolygon != nullptr && mode == draw) {
-					currentPolygon->updateLastVertex(isec);
-					dirty = true;
-				}
-			}
-		}
-		if(state.ulButtonPressed != 0) {
-			anyButtonPressed = true;
-			buttonPressed = true;
-		}
-		m_rbShowTrackedDevice[ unDevice ] = state.ulButtonPressed == 0;
-		for(int i = 0; i < 5; i++) {
-			float x = state.rAxis[i].x;
-			float y = state.rAxis[i].y;
-			if(x != 0.0f || y != 0.0f) {
-				printf("%0.3f %0.3f\n", x, y);
-			}
-		}
-	}
-	if(dirty) {
-		RegenVB();
-	}
-	if(anyButtonPressed == false) {
-		buttonPressed = false;
-	}
-
-	return bRet;
-}
-
-void App::RunMainLoop()
-{
-	bool bQuit = false;
-
-	SDL_StartTextInput();
-	SDL_ShowCursor( SDL_DISABLE );
-
-	while ( !bQuit )
-	{
-		bQuit = HandleInput();
-
-		RenderFrame();
-	}
-
-	SDL_StopTextInput();
-}
-
-void App::ProcessVREvent( const vr::VREvent_t & event )
-{
-	switch( event.eventType )
-	{
-	case vr::VREvent_TrackedDeviceActivated:
-		{
-			initDeviceModel( event.trackedDeviceIndex );
-			printf( "Device %u attached. Setting up render model.\n", event.trackedDeviceIndex );
-		}
-		break;
-	case vr::VREvent_TrackedDeviceDeactivated:
-		{
-			printf( "Device %u detached.\n", event.trackedDeviceIndex );
-		}
-		break;
-	case vr::VREvent_TrackedDeviceUpdated:
-		{
-			printf( "Device %u updated.\n", event.trackedDeviceIndex );
-		}
-		break;
-	}
 }
 
 void App::RenderFrame()
@@ -752,10 +754,10 @@ void App::RenderControllerAxes() {
 
 		m_iTrackedControllerCount += 1;
 
-		if( !m_rTrackedDevicePose[ unTrackedDevice ].bPoseIsValid )
+		if( !devicePose[ unTrackedDevice ].bPoseIsValid )
 			continue;
 
-		const Matrix4 & mat = m_rmat4DevicePose[unTrackedDevice];
+		const Matrix4 & mat = devicePoseMat[unTrackedDevice];
 
 		Vector4 center = mat * Vector4( 0, 0, 0, 1 );
 		if(unTrackedDevice == currentController) {
@@ -801,7 +803,7 @@ void App::RenderControllerAxes() {
 	} else if(mode == extrude) {
 		currentPolygon->setHeight(hght);
 		currentPolygon->addToVb2(vertdataarray);
-		RegenVB();
+		regenVB();
 	}
 	m_uiControllerVertcount = vertdataarray.size() / 6;
 
@@ -886,9 +888,9 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 
 	glUseProgram( sceneShader );
 	glUniformMatrix4fv( sceneShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
-	glBindVertexArray( m_unSceneVAO );
+	glBindVertexArray( sceneVertexAr );
 	glBindTexture( GL_TEXTURE_2D, brickTextureId );
-	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
+	glDrawArrays( GL_TRIANGLES, 0, sceneVertCount );
 	glBindVertexArray( 0 );
 
 	bool inputCapturedByAnotherProcess = hmd->IsInputFocusCapturedByAnotherProcess();
@@ -911,14 +913,14 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 		if( !m_rTrackedDeviceToRenderModel[ unTrackedDevice ] || !m_rbShowTrackedDevice[ unTrackedDevice ] )
 			continue;
 
-		const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[ unTrackedDevice ];
+		const vr::TrackedDevicePose_t & pose = devicePose[ unTrackedDevice ];
 		if( !pose.bPoseIsValid )
 			continue;
 
 		if( inputCapturedByAnotherProcess && hmd->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
 			continue;
 
-		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unTrackedDevice ];
+		const Matrix4 & matDeviceToTracking = devicePoseMat[ unTrackedDevice ];
 		Matrix4 matMVP = GetCurrentViewProjectionMatrix( nEye ) * matDeviceToTracking;
 		glUniformMatrix4fv( renderModelShaderMatrix, 1, GL_FALSE, matMVP.get() );
 
@@ -976,16 +978,16 @@ void App::UpdateHMDMatrixPose()
 	if ( !hmd )
 		return;
 
-	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0 );
+	vr::VRCompositor()->WaitGetPoses(devicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0 );
 
 	m_iValidPoseCount = 0;
 	m_strPoseClasses = "";
 	for ( int nDevice = 0; nDevice < vr::k_unMaxTrackedDeviceCount; ++nDevice )
 	{
-		if ( m_rTrackedDevicePose[nDevice].bPoseIsValid )
+		if ( devicePose[nDevice].bPoseIsValid )
 		{
 			m_iValidPoseCount++;
-			m_rmat4DevicePose[nDevice] = ConvertSteamVRMatrixToMatrix4( m_rTrackedDevicePose[nDevice].mDeviceToAbsoluteTracking );
+			devicePoseMat[nDevice] = ConvertSteamVRMatrixToMatrix4( devicePose[nDevice].mDeviceToAbsoluteTracking );
 			if (m_rDevClassChar[nDevice]==0)
 			{
 				switch (hmd->GetTrackedDeviceClass(nDevice))
@@ -1002,9 +1004,9 @@ void App::UpdateHMDMatrixPose()
 		}
 	}
 
-	if ( m_rTrackedDevicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid )
+	if ( devicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid )
 	{
-		m_mat4HMDPose = m_rmat4DevicePose[vr::k_unTrackedDeviceIndex_Hmd];
+		m_mat4HMDPose = devicePoseMat[vr::k_unTrackedDeviceIndex_Hmd];
 		m_mat4HMDPose.invert();
 	}
 }
@@ -1039,9 +1041,9 @@ void App::Shutdown()
 		glDebugMessageControl( GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_FALSE );
 		glDebugMessageCallback(nullptr, nullptr);
 		
-		if(m_glSceneVertBuffer) {
-			glDeleteBuffers(1, &m_glSceneVertBuffer);
-			m_glSceneVertBuffer = 0;
+		if(sceneVertBuffer) {
+			glDeleteBuffers(1, &sceneVertBuffer);
+			sceneVertBuffer = 0;
 		}
 
 		if ( sceneShader )
@@ -1077,9 +1079,9 @@ void App::Shutdown()
 		{
 			glDeleteVertexArrays( 1, &monitorWinVertAr );
 		}
-		if( m_unSceneVAO != 0 ) {
-			glDeleteVertexArrays( 1, &m_unSceneVAO );
-			m_unSceneVAO = 0;
+		if( sceneVertexAr != 0 ) {
+			glDeleteVertexArrays( 1, &sceneVertexAr );
+			sceneVertexAr = 0;
 		}
 		if( m_unControllerVAO != 0 )
 		{

@@ -26,15 +26,15 @@ public:
 	bool init();
 	bool initGl();
 	GLuint App::loadShader(std::string name);
-	void App::RegenVB();
+	void App::regenVB();
 
 	void initDeviceModels();
 
 	void Shutdown();
 
-	void RunMainLoop();
-	bool HandleInput();
-	void ProcessVREvent( const vr::VREvent_t & event );
+	void mainLoop();
+	bool handleInput();
+	void processVrEvent( const vr::VREvent_t & event );
 	void RenderFrame();
 
 	bool loadTextures();
@@ -86,8 +86,8 @@ private:
 	vr::IVRSystem *hmd;
 	std::string m_strDriver;
 	std::string m_strDisplay;
-	vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];
-	Matrix4 m_rmat4DevicePose[ vr::k_unMaxTrackedDeviceCount ];
+	vr::TrackedDevicePose_t devicePose[ vr::k_unMaxTrackedDeviceCount ];
+	Matrix4 devicePoseMat[ vr::k_unMaxTrackedDeviceCount ];
 	bool m_rbShowTrackedDevice[ vr::k_unMaxTrackedDeviceCount ];
 
 private: // SDL bookkeeping
@@ -110,10 +110,10 @@ private: // OpenGL bookkeeping
 	
 	GLuint brickTextureId;
 
-	unsigned int m_uiVertcount;
+	unsigned int sceneVertCount;
 
-	GLuint m_glSceneVertBuffer;
-	GLuint m_unSceneVAO;
+	GLuint sceneVertBuffer;
+	GLuint sceneVertexAr;
 	GLuint monitorWinVertAr;
 	GLuint monitorWinVertBuff;
 	GLuint monitorWinIdxBuff;
