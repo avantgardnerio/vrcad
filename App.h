@@ -35,19 +35,19 @@ public:
 	void mainLoop();
 	bool handleInput();
 	void processVrEvent( const vr::VREvent_t & event );
-	void RenderFrame();
+	void renderFrame();
 
 	bool loadTextures();
 
-	void RenderControllerAxes();
+	void renderControllerAxes();
 
 	bool setupHmdRenderTargets();
 	void setupMonitorWindow();
 	void setupCameraMatrices();
 
-	void RenderStereoTargets();
-	void RenderCompanionWindow();
-	void RenderScene( vr::Hmd_Eye nEye );
+	void renderToHmd();
+	void renderToMonitorWindow();
+	void renderToEye( vr::Hmd_Eye nEye );
 
 	std::string App::getDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
 	void ThreadSleep( unsigned long nMilliseconds );
@@ -56,12 +56,12 @@ public:
 
 	Matrix4 getEyeProj( vr::Hmd_Eye nEye );
 	Matrix4 getEyePos( vr::Hmd_Eye nEye );
-	Matrix4 GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye );
-	void UpdateHMDMatrixPose();
+	Matrix4 getEyeProjMat( vr::Hmd_Eye nEye );
+	void updateHmdPose();
 
 	Matrix4 ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose );
 
-	GLuint CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
+	GLuint compileShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader );
 	bool createShaders();
 
 	void initDeviceModel( vr::TrackedDeviceIndex_t unTrackedDeviceIndex );
@@ -88,23 +88,23 @@ private:
 	std::string m_strDisplay;
 	vr::TrackedDevicePose_t devicePose[ vr::k_unMaxTrackedDeviceCount ];
 	Matrix4 devicePoseMat[ vr::k_unMaxTrackedDeviceCount ];
-	bool m_rbShowTrackedDevice[ vr::k_unMaxTrackedDeviceCount ];
+	bool showDevice[ vr::k_unMaxTrackedDeviceCount ];
 
 private: // SDL bookkeeping
 	SDL_Window *monitorWindow;
-	uint32_t m_nCompanionWindowWidth;
-	uint32_t m_nCompanionWindowHeight;
+	uint32_t monitorWinWidth;
+	uint32_t monitorWinHeight;
 
 	SDL_GLContext monitorGlContext;
 
 private: // OpenGL bookkeeping
-	int m_iTrackedControllerCount;
+	int trackedControllerCount;
 	int m_iTrackedControllerCount_Last;
-	int m_iValidPoseCount;
+	int validPoseCount;
 	int m_iValidPoseCount_Last;
 
-	std::string m_strPoseClasses;                            // what classes we saw poses for this frame
-	char m_rDevClassChar[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
+	std::string poseClasses;								// what classes we saw poses for this frame TODO: Kill this
+	char classForDeviceIdx[ vr::k_unMaxTrackedDeviceCount ];   // for each device, a character representing its class
 
 	int m_iSceneVolumeInit;                                  // if you want something other than the default 20x20x20
 	
@@ -119,11 +119,11 @@ private: // OpenGL bookkeeping
 	GLuint monitorWinIdxBuff;
 	unsigned int monitorWinIdxSize;
 
-	GLuint m_glControllerVertBuffer;
-	GLuint m_unControllerVAO;
-	unsigned int m_uiControllerVertcount;
+	GLuint controllerVertBuffer;
+	GLuint controllerVertAr;
+	unsigned int controllerVertCount;
 
-	Matrix4 m_mat4HMDPose;
+	Matrix4 inverseHmdPose;
 	Matrix4 leftEyePos;
 	Matrix4 rightEyePos;
 
@@ -171,5 +171,5 @@ private: // OpenGL bookkeeping
 	uint32_t hmdRenderHeight;
 
 	std::vector< CGLRenderModel * > m_vecRenderModels;
-	CGLRenderModel *m_rTrackedDeviceToRenderModel[ vr::k_unMaxTrackedDeviceCount ];
+	CGLRenderModel *deviceModel[ vr::k_unMaxTrackedDeviceCount ];
 };

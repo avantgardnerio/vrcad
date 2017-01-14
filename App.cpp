@@ -7,32 +7,32 @@
 App::App( int argc, char *argv[] ) {
 	monitorWindow = NULL;
 	monitorGlContext = NULL;
-	m_nCompanionWindowWidth = 640;
-	m_nCompanionWindowHeight = 320;
+	monitorWinWidth = 640;
+	monitorWinHeight = 320;
 	sceneShader = 0;
 	monitorWindowShader = 0;
 	controllerShader = 0;
 	renderModelShader = 0;
 	hmd = NULL;
 	m_bPerf = false;
-	m_glControllerVertBuffer = 0;
-	m_unControllerVAO = 0;
+	controllerVertBuffer = 0;
+	controllerVertAr = 0;
 	sceneVertexAr = 0;
 	sceneShaderMatrix = -1;
 	controllerShaderMatrix = -1;
 	renderModelShaderMatrix = -1;
-	m_iTrackedControllerCount = 0;
+	trackedControllerCount = 0;
 	m_iTrackedControllerCount_Last = -1;
-	m_iValidPoseCount = 0;
+	validPoseCount = 0;
 	m_iValidPoseCount_Last = -1;
 	m_iSceneVolumeInit = 20;
-	m_strPoseClasses = "";
+	poseClasses = "";
 	buttonPressed = false;
 	currentPolygon = nullptr;
 	mode = none;
 
 	// other initialization tasks are done in BInit
-	memset(m_rDevClassChar, 0, sizeof(m_rDevClassChar));
+	memset(classForDeviceIdx, 0, sizeof(classForDeviceIdx));
 };
 
 App::~App() {
@@ -49,7 +49,7 @@ void App::mainLoop() {
 
 	while (!bQuit) {
 		bQuit = handleInput();
-		RenderFrame();
+		renderFrame();
 	}
 
 	SDL_StopTextInput();
@@ -148,7 +148,7 @@ bool App::handleInput() {
 			anyButtonPressed = true;
 			buttonPressed = true;
 		}
-		m_rbShowTrackedDevice[deviceIdx] = controllerState.ulButtonPressed == 0;
+		showDevice[deviceIdx] = controllerState.ulButtonPressed == 0;
 		for (int i = 0; i < 5; i++) {
 			float x = controllerState.rAxis[i].x;
 			float y = controllerState.rAxis[i].y;
@@ -209,6 +209,288 @@ void App::regenVB() {
 	glDisableVertexAttribArray(1);
 }
 
+void App::renderFrame() {
+	if (hmd) {
+		renderControllerAxes();
+		renderToHmd();
+		renderToMonitorWindow();
+
+		vr::Texture_t leftEyeTexture = { (void*)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture);
+		vr::Texture_t rightEyeTexture = { (void*)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
+		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture);
+	}
+
+	// Swap
+	SDL_GL_SwapWindow(monitorWindow);
+
+	// We want to make sure the glFinish waits for the entire present to complete, not just the submission
+	// of the command. So, we do a clear here right here so the glFinish will wait fully for the swap.
+	glClearColor(0, 0, 0, 1);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// TODO: Kill this
+	if (trackedControllerCount != m_iTrackedControllerCount_Last || validPoseCount != m_iValidPoseCount_Last) {
+		m_iValidPoseCount_Last = validPoseCount;
+		m_iTrackedControllerCount_Last = trackedControllerCount;
+		printf("PoseCount:%d(%s) Controllers:%d\n", validPoseCount, poseClasses.c_str(), trackedControllerCount);
+	}
+
+	updateHmdPose();
+}
+
+void App::renderControllerAxes() {
+	// don't draw controllers if somebody else has input focus
+	if (hmd->IsInputFocusCapturedByAnotherProcess())
+		return;
+
+	std::vector<float> floatAr;
+
+	controllerVertCount = 0;
+	trackedControllerCount = 0;
+
+	float hght = 0.0f;
+	for (vr::TrackedDeviceIndex_t deviceIdx = vr::k_unTrackedDeviceIndex_Hmd + 1; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
+		if (!hmd->IsTrackedDeviceConnected(deviceIdx))
+			continue;
+
+		if (hmd->GetTrackedDeviceClass(deviceIdx) != vr::TrackedDeviceClass_Controller)
+			continue;
+
+		trackedControllerCount += 1;
+
+		if (!devicePose[deviceIdx].bPoseIsValid)
+			continue;
+
+		const Matrix4 & mat = devicePoseMat[deviceIdx];
+
+		Vector4 center = mat * Vector4(0, 0, 0, 1);
+		if (deviceIdx == currentController) {
+			hght = center.y;
+		}
+
+		for (int i = 0; i < 3; ++i) {
+			Vector3 color(0, 0, 0);
+			Vector4 point(0, 0, 0, 1);
+			point[i] += 0.05f;  // offset in X, Y, Z
+			color[i] = 1.0;  // R, G, B
+			point = mat * point;
+			floatAr.push_back(center.x);
+			floatAr.push_back(center.y);
+			floatAr.push_back(center.z);
+
+			floatAr.push_back(color.x);
+			floatAr.push_back(color.y);
+			floatAr.push_back(color.z);
+
+			floatAr.push_back(point.x);
+			floatAr.push_back(point.y);
+			floatAr.push_back(point.z);
+
+			floatAr.push_back(color.x);
+			floatAr.push_back(color.y);
+			floatAr.push_back(color.z);
+		}
+
+		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
+		Vector4 end = mat * Vector4(0, 0, -39.f, 1);
+		Vector3 color(0, 0, 1);
+
+		floatAr.push_back(start.x); floatAr.push_back(start.y); floatAr.push_back(start.z);
+		floatAr.push_back(color.x); floatAr.push_back(color.y); floatAr.push_back(color.z);
+
+		floatAr.push_back(end.x); floatAr.push_back(end.y); floatAr.push_back(end.z);
+		floatAr.push_back(color.x); floatAr.push_back(color.y); floatAr.push_back(color.z);
+	}
+
+	if (mode == draw && currentPolygon != nullptr) {
+		currentPolygon->addToVb2(floatAr);
+	} else if (mode == extrude) {
+		currentPolygon->setHeight(hght);
+		currentPolygon->addToVb2(floatAr);
+		regenVB();
+	}
+	controllerVertCount = floatAr.size() / 6;
+
+	// Setup the VAO the first time through.
+	if (controllerVertAr == 0) {
+		glGenVertexArrays(1, &controllerVertAr);
+		glBindVertexArray(controllerVertAr);
+
+		glGenBuffers(1, &controllerVertBuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, controllerVertBuffer);
+
+		GLuint stride = 2 * 3 * sizeof(float);
+		GLuint offset = 0;
+
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+
+		offset += sizeof(Vector3);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
+
+		glBindVertexArray(0);
+	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, controllerVertBuffer);
+
+	// set vertex data if we have some
+	if (floatAr.size() > 0) {
+		//$ TODO: Use glBufferSubData for this...
+		glBufferData(GL_ARRAY_BUFFER, sizeof(float) * floatAr.size(), &floatAr[0], GL_STREAM_DRAW);
+	}
+}
+
+void App::renderToHmd() {
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glEnable(GL_MULTISAMPLE);
+
+	// Left Eye
+	glBindFramebuffer(GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
+	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight);
+	renderToEye(vr::Eye_Left);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glDisable(GL_MULTISAMPLE);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId);
+
+	glBlitFramebuffer(0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+	glEnable(GL_MULTISAMPLE);
+
+	// Right Eye
+	glBindFramebuffer(GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
+	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight);
+	renderToEye(vr::Eye_Right);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glDisable(GL_MULTISAMPLE);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId);
+
+	glBlitFramebuffer(0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+
+	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+}
+
+void App::renderToEye(vr::Hmd_Eye eye) {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glEnable(GL_DEPTH_TEST);
+
+	glUseProgram(sceneShader);
+	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, getEyeProjMat(eye).get());
+	glBindVertexArray(sceneVertexAr);
+	glBindTexture(GL_TEXTURE_2D, brickTextureId);
+	glDrawArrays(GL_TRIANGLES, 0, sceneVertCount);
+	glBindVertexArray(0);
+
+	// Axises
+	bool inputCaptured = hmd->IsInputFocusCapturedByAnotherProcess();
+	if (!inputCaptured) {
+		glUseProgram(controllerShader);
+		glUniformMatrix4fv(controllerShaderMatrix, 1, GL_FALSE, getEyeProjMat(eye).get());
+		glBindVertexArray(controllerVertAr);
+		glDrawArrays(GL_LINES, 0, controllerVertCount);
+		glBindVertexArray(0);
+	}
+
+	// ----- Render Model rendering -----
+	glUseProgram(renderModelShader);
+	for (uint32_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
+		if (!deviceModel[deviceIdx] || !showDevice[deviceIdx])
+			continue;
+		const vr::TrackedDevicePose_t & pose = devicePose[deviceIdx];
+		if (!pose.bPoseIsValid)
+			continue;
+		if (inputCaptured && hmd->GetTrackedDeviceClass(deviceIdx) == vr::TrackedDeviceClass_Controller)
+			continue;
+
+		const Matrix4 & matDeviceToTracking = devicePoseMat[deviceIdx];
+		Matrix4 matMVP = getEyeProjMat(eye) * matDeviceToTracking;
+		glUniformMatrix4fv(renderModelShaderMatrix, 1, GL_FALSE, matMVP.get());
+		deviceModel[deviceIdx]->Draw();
+	}
+
+	glUseProgram(0);
+}
+
+Matrix4 App::getEyeProjMat(vr::Hmd_Eye eye) {
+	if (eye == vr::Eye_Left) {
+		return leftEyeProj * leftEyePos * inverseHmdPose;
+	} else if (eye == vr::Eye_Right) {
+		return rightEyeProj * rightEyePos *  inverseHmdPose;
+	}
+	Matrix4 matMVP;
+	return matMVP;
+}
+
+void App::renderToMonitorWindow()
+{
+	glDisable(GL_DEPTH_TEST);
+	glViewport(0, 0, monitorWinWidth, monitorWinHeight);
+
+	glBindVertexArray(monitorWinVertAr);
+	glUseProgram(monitorWindowShader);
+
+	// render left eye (first half of index array )
+	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glDrawElements(GL_TRIANGLES, monitorWinIdxSize / 2, GL_UNSIGNED_SHORT, 0);
+
+	// render right eye (second half of index array )
+	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glDrawElements(GL_TRIANGLES, monitorWinIdxSize / 2, GL_UNSIGNED_SHORT, (const void *)(monitorWinIdxSize));
+
+	glBindVertexArray(0);
+	glUseProgram(0);
+}
+
+void App::updateHmdPose() {
+	if (!hmd)
+		return;
+
+	vr::VRCompositor()->WaitGetPoses(devicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
+
+	validPoseCount = 0;
+	poseClasses = "";
+	for (int deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
+		if (devicePose[deviceIdx].bPoseIsValid) {
+			validPoseCount++;
+			devicePoseMat[deviceIdx] = ConvertSteamVRMatrixToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
+			if (classForDeviceIdx[deviceIdx] == 0) {
+				switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
+					case vr::TrackedDeviceClass_Controller:        classForDeviceIdx[deviceIdx] = 'C'; break;
+					case vr::TrackedDeviceClass_HMD:               classForDeviceIdx[deviceIdx] = 'H'; break;
+					case vr::TrackedDeviceClass_Invalid:           classForDeviceIdx[deviceIdx] = 'I'; break;
+					case vr::TrackedDeviceClass_GenericTracker:    classForDeviceIdx[deviceIdx] = 'G'; break;
+					case vr::TrackedDeviceClass_TrackingReference: classForDeviceIdx[deviceIdx] = 'T'; break;
+					default:                                       classForDeviceIdx[deviceIdx] = '?'; break;
+				}
+			}
+			poseClasses += classForDeviceIdx[deviceIdx];
+		}
+	}
+
+	if (devicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid) {
+		inverseHmdPose = devicePoseMat[vr::k_unTrackedDeviceIndex_Hmd];
+		inverseHmdPose.invert();
+	}
+}
 
 void App::processVrEvent(const vr::VREvent_t & event) {
 	switch (event.eventType)
@@ -260,7 +542,7 @@ bool App::init() {
 	int windowPosX = 700;
 	int windowPosY = 100;
 	Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-	monitorWindow = SDL_CreateWindow("hellovr", windowPosX, windowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags);
+	monitorWindow = SDL_CreateWindow("hellovr", windowPosX, windowPosY, monitorWinWidth, monitorWinHeight, unWindowFlags);
 	if (monitorWindow == NULL) {
 		printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
 		return false;
@@ -336,9 +618,59 @@ GLuint App::loadShader(std::string name) {
 	std::string sceneVert((std::istreambuf_iterator<char>(std::ifstream(vertPath))), std::istreambuf_iterator<char>());
 	std::string sceneFrag((std::istreambuf_iterator<char>(std::ifstream(fragPath))), std::istreambuf_iterator<char>());
 
-	GLuint id = CompileGLShader(name.c_str(), sceneVert.c_str(), sceneFrag.c_str());
+	GLuint id = compileShader(name.c_str(), sceneVert.c_str(), sceneFrag.c_str());
 
 	return id;
+}
+
+GLuint App::compileShader(const char *name, const char *vertShader, const char *fragShader) {
+	GLuint programId = glCreateProgram();
+
+	GLuint vertShaderId = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vertShaderId, 1, &vertShader, NULL);
+	glCompileShader(vertShaderId);
+
+	GLint vertCompiled = GL_FALSE;
+	glGetShaderiv(vertShaderId, GL_COMPILE_STATUS, &vertCompiled);
+	if (vertCompiled != GL_TRUE) {
+		printf("%s - Unable to compile vertex shader %d!\n", name, vertShaderId);
+		glDeleteProgram(programId);
+		glDeleteShader(vertShaderId);
+		return 0;
+	}
+	glAttachShader(programId, vertShaderId);
+	glDeleteShader(vertShaderId); // the program hangs onto this once it's attached
+
+	GLuint fragShaderId = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(fragShaderId, 1, &fragShader, NULL);
+	glCompileShader(fragShaderId);
+
+	GLint fragCompiled = GL_FALSE;
+	glGetShaderiv(fragShaderId, GL_COMPILE_STATUS, &fragCompiled);
+	if (fragCompiled != GL_TRUE) {
+		printf("%s - Unable to compile fragment shader %d!\n", name, fragShaderId);
+		glDeleteProgram(programId);
+		glDeleteShader(fragShaderId);
+		return 0;
+	}
+
+	glAttachShader(programId, fragShaderId);
+	glDeleteShader(fragShaderId); // the program hangs onto this once it's attached
+
+	glLinkProgram(programId);
+
+	GLint programSuccess = GL_TRUE;
+	glGetProgramiv(programId, GL_LINK_STATUS, &programSuccess);
+	if (programSuccess != GL_TRUE) {
+		printf("%s - Error linking program %d!\n", name, programId);
+		glDeleteProgram(programId);
+		return 0;
+	}
+
+	glUseProgram(programId);
+	glUseProgram(0);
+
+	return programId;
 }
 
 bool App::createShaders()
@@ -538,7 +870,7 @@ void App::setupMonitorWindow() {
 }
 
 void App::initDeviceModels() {
-	memset(m_rTrackedDeviceToRenderModel, 0, sizeof(m_rTrackedDeviceToRenderModel));
+	memset(deviceModel, 0, sizeof(deviceModel));
 	if (!hmd)
 		return;
 
@@ -563,8 +895,8 @@ void App::initDeviceModel(vr::TrackedDeviceIndex_t deviceIdx) {
 	}
 	else
 	{
-		m_rTrackedDeviceToRenderModel[deviceIdx] = renderModel;
-		m_rbShowTrackedDevice[deviceIdx] = true;
+		deviceModel[deviceIdx] = renderModel;
+		showDevice[deviceIdx] = true;
 	}
 }
 
@@ -640,377 +972,6 @@ void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum s
 	printf( "GL Error: %s\n", message );
 }
 
-void App::RenderFrame()
-{
-	// for now as fast as possible
-	if ( hmd )
-	{
-		RenderControllerAxes();
-		RenderStereoTargets();
-		RenderCompanionWindow();
-
-		vr::Texture_t leftEyeTexture = {(void*)leftEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Left, &leftEyeTexture );
-		vr::Texture_t rightEyeTexture = {(void*)rightEyeDesc.m_nResolveTextureId, vr::TextureType_OpenGL, vr::ColorSpace_Gamma };
-		vr::VRCompositor()->Submit(vr::Eye_Right, &rightEyeTexture );
-	}
-
-	// SwapWindow
-	{
-		SDL_GL_SwapWindow( monitorWindow );
-	}
-
-	// Clear
-	{
-		// We want to make sure the glFinish waits for the entire present to complete, not just the submission
-		// of the command. So, we do a clear here right here so the glFinish will wait fully for the swap.
-		glClearColor( 0, 0, 0, 1 );
-		glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
-	}
-
-	// Spew out the controller and pose count whenever they change.
-	if ( m_iTrackedControllerCount != m_iTrackedControllerCount_Last || m_iValidPoseCount != m_iValidPoseCount_Last )
-	{
-		m_iValidPoseCount_Last = m_iValidPoseCount;
-		m_iTrackedControllerCount_Last = m_iTrackedControllerCount;
-		
-		printf( "PoseCount:%d(%s) Controllers:%d\n", m_iValidPoseCount, m_strPoseClasses.c_str(), m_iTrackedControllerCount );
-	}
-
-	UpdateHMDMatrixPose();
-}
-
-GLuint App::CompileGLShader( const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader )
-{
-	GLuint unProgramID = glCreateProgram();
-
-	GLuint nSceneVertexShader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource( nSceneVertexShader, 1, &pchVertexShader, NULL);
-	glCompileShader( nSceneVertexShader );
-
-	GLint vShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneVertexShader, GL_COMPILE_STATUS, &vShaderCompiled);
-	if ( vShaderCompiled != GL_TRUE)
-	{
-		printf("%s - Unable to compile vertex shader %d!\n", pchShaderName, nSceneVertexShader);
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneVertexShader );
-		return 0;
-	}
-	glAttachShader( unProgramID, nSceneVertexShader);
-	glDeleteShader( nSceneVertexShader ); // the program hangs onto this once it's attached
-
-	GLuint  nSceneFragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource( nSceneFragmentShader, 1, &pchFragmentShader, NULL);
-	glCompileShader( nSceneFragmentShader );
-
-	GLint fShaderCompiled = GL_FALSE;
-	glGetShaderiv( nSceneFragmentShader, GL_COMPILE_STATUS, &fShaderCompiled);
-	if (fShaderCompiled != GL_TRUE)
-	{
-		printf("%s - Unable to compile fragment shader %d!\n", pchShaderName, nSceneFragmentShader );
-		glDeleteProgram( unProgramID );
-		glDeleteShader( nSceneFragmentShader );
-		return 0;	
-	}
-
-	glAttachShader( unProgramID, nSceneFragmentShader );
-	glDeleteShader( nSceneFragmentShader ); // the program hangs onto this once it's attached
-
-	glLinkProgram( unProgramID );
-
-	GLint programSuccess = GL_TRUE;
-	glGetProgramiv( unProgramID, GL_LINK_STATUS, &programSuccess);
-	if ( programSuccess != GL_TRUE )
-	{
-		printf("%s - Error linking program %d!\n", pchShaderName, unProgramID);
-		glDeleteProgram( unProgramID );
-		return 0;
-	}
-
-	glUseProgram( unProgramID );
-	glUseProgram( 0 );
-
-	return unProgramID;
-}
-
-void App::RenderControllerAxes() {
-	// don't draw controllers if somebody else has input focus
-	if( hmd->IsInputFocusCapturedByAnotherProcess() )
-		return;
-
-	std::vector<float> vertdataarray;
-
-	m_uiControllerVertcount = 0;
-	m_iTrackedControllerCount = 0;
-
-	float hght = 0.0f;
-	for ( vr::TrackedDeviceIndex_t unTrackedDevice = vr::k_unTrackedDeviceIndex_Hmd + 1; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; ++unTrackedDevice ) {
-		if ( !hmd->IsTrackedDeviceConnected( unTrackedDevice ) )
-			continue;
-
-		if( hmd->GetTrackedDeviceClass( unTrackedDevice ) != vr::TrackedDeviceClass_Controller )
-			continue;
-
-		m_iTrackedControllerCount += 1;
-
-		if( !devicePose[ unTrackedDevice ].bPoseIsValid )
-			continue;
-
-		const Matrix4 & mat = devicePoseMat[unTrackedDevice];
-
-		Vector4 center = mat * Vector4( 0, 0, 0, 1 );
-		if(unTrackedDevice == currentController) {
-			hght = center.y;
-		}
-
-		for ( int i = 0; i < 3; ++i ) {
-			Vector3 color( 0, 0, 0 );
-			Vector4 point( 0, 0, 0, 1 );
-			point[i] += 0.05f;  // offset in X, Y, Z
-			color[i] = 1.0;  // R, G, B
-			point = mat * point;
-			vertdataarray.push_back( center.x );
-			vertdataarray.push_back( center.y );
-			vertdataarray.push_back( center.z );
-
-			vertdataarray.push_back( color.x );
-			vertdataarray.push_back( color.y );
-			vertdataarray.push_back( color.z );
-		
-			vertdataarray.push_back( point.x );
-			vertdataarray.push_back( point.y );
-			vertdataarray.push_back( point.z );
-		
-			vertdataarray.push_back( color.x );
-			vertdataarray.push_back( color.y );
-			vertdataarray.push_back( color.z );
-		}
-
-		Vector4 start = mat * Vector4( 0, 0, -0.02f, 1 );
-		Vector4 end = mat * Vector4( 0, 0, -39.f, 1 );
-		Vector3 color( 0, 0, 1 );
-
-		vertdataarray.push_back( start.x );vertdataarray.push_back( start.y );vertdataarray.push_back( start.z );
-		vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
-
-		vertdataarray.push_back( end.x );vertdataarray.push_back( end.y );vertdataarray.push_back( end.z );
-		vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
-	}
-
-	if(mode == draw && currentPolygon != nullptr) {
-		currentPolygon->addToVb2(vertdataarray);
-	} else if(mode == extrude) {
-		currentPolygon->setHeight(hght);
-		currentPolygon->addToVb2(vertdataarray);
-		regenVB();
-	}
-	m_uiControllerVertcount = vertdataarray.size() / 6;
-
-	// Setup the VAO the first time through.
-	if ( m_unControllerVAO == 0 ) {
-		glGenVertexArrays( 1, &m_unControllerVAO );
-		glBindVertexArray( m_unControllerVAO );
-
-		glGenBuffers( 1, &m_glControllerVertBuffer );
-		glBindBuffer( GL_ARRAY_BUFFER, m_glControllerVertBuffer );
-
-		GLuint stride = 2 * 3 * sizeof( float );
-		GLuint offset = 0;
-
-		glEnableVertexAttribArray( 0 );
-		glVertexAttribPointer( 0, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-		offset += sizeof( Vector3 );
-		glEnableVertexAttribArray( 1 );
-		glVertexAttribPointer( 1, 3, GL_FLOAT, GL_FALSE, stride, (const void *)offset);
-
-		glBindVertexArray( 0 );
-	}
-
-	glBindBuffer( GL_ARRAY_BUFFER, m_glControllerVertBuffer );
-
-	// set vertex data if we have some
-	if( vertdataarray.size() > 0 ) {
-		//$ TODO: Use glBufferSubData for this...
-		glBufferData( GL_ARRAY_BUFFER, sizeof(float) * vertdataarray.size(), &vertdataarray[0], GL_STREAM_DRAW );
-	}
-}
-
-void App::RenderStereoTargets()
-{
-	glClearColor( 0.0f, 0.0f, 0.0f, 1.0f );
-	glEnable( GL_MULTISAMPLE );
-
-	// Left Eye
-	glBindFramebuffer( GL_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight );
- 	RenderScene( vr::Eye_Left );
- 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
-	
-	glDisable( GL_MULTISAMPLE );
-	 	
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, leftEyeDesc.m_nRenderFramebufferId);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, leftEyeDesc.m_nResolveFramebufferId );
-
-    glBlitFramebuffer( 0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, 
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );	
-
-	glEnable( GL_MULTISAMPLE );
-
-	// Right Eye
-	glBindFramebuffer( GL_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
- 	glViewport(0, 0, hmdRenderWidth, hmdRenderHeight );
- 	RenderScene( vr::Eye_Right );
- 	glBindFramebuffer( GL_FRAMEBUFFER, 0 );
- 	
-	glDisable( GL_MULTISAMPLE );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, rightEyeDesc.m_nRenderFramebufferId );
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, rightEyeDesc.m_nResolveFramebufferId );
-	
-    glBlitFramebuffer( 0, 0, hmdRenderWidth, hmdRenderHeight, 0, 0, hmdRenderWidth, hmdRenderHeight, 
-		GL_COLOR_BUFFER_BIT,
- 		GL_LINEAR  );
-
- 	glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);
-    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0 );
-}
-
-void App::RenderScene( vr::Hmd_Eye nEye )
-{
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glEnable(GL_DEPTH_TEST);
-
-	glUseProgram( sceneShader );
-	glUniformMatrix4fv( sceneShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
-	glBindVertexArray( sceneVertexAr );
-	glBindTexture( GL_TEXTURE_2D, brickTextureId );
-	glDrawArrays( GL_TRIANGLES, 0, sceneVertCount );
-	glBindVertexArray( 0 );
-
-	bool inputCapturedByAnotherProcess = hmd->IsInputFocusCapturedByAnotherProcess();
-
-	if( !inputCapturedByAnotherProcess )
-	{
-		// draw the controller axis lines
-		glUseProgram( controllerShader );
-		glUniformMatrix4fv( controllerShaderMatrix, 1, GL_FALSE, GetCurrentViewProjectionMatrix( nEye ).get() );
-		glBindVertexArray( m_unControllerVAO );
-		glDrawArrays( GL_LINES, 0, m_uiControllerVertcount );
-		glBindVertexArray( 0 );
-	}
-
-	// ----- Render Model rendering -----
-	glUseProgram( renderModelShader );
-
-	for( uint32_t unTrackedDevice = 0; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++ )
-	{
-		if( !m_rTrackedDeviceToRenderModel[ unTrackedDevice ] || !m_rbShowTrackedDevice[ unTrackedDevice ] )
-			continue;
-
-		const vr::TrackedDevicePose_t & pose = devicePose[ unTrackedDevice ];
-		if( !pose.bPoseIsValid )
-			continue;
-
-		if( inputCapturedByAnotherProcess && hmd->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
-			continue;
-
-		const Matrix4 & matDeviceToTracking = devicePoseMat[ unTrackedDevice ];
-		Matrix4 matMVP = GetCurrentViewProjectionMatrix( nEye ) * matDeviceToTracking;
-		glUniformMatrix4fv( renderModelShaderMatrix, 1, GL_FALSE, matMVP.get() );
-
-		m_rTrackedDeviceToRenderModel[ unTrackedDevice ]->Draw();
-	}
-
-	glUseProgram( 0 );
-}
-
-void App::RenderCompanionWindow()
-{
-	glDisable(GL_DEPTH_TEST);
-	glViewport( 0, 0, m_nCompanionWindowWidth, m_nCompanionWindowHeight );
-
-	glBindVertexArray( monitorWinVertAr );
-	glUseProgram( monitorWindowShader );
-
-	// render left eye (first half of index array )
-	glBindTexture(GL_TEXTURE_2D, leftEyeDesc.m_nResolveTextureId );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	glDrawElements( GL_TRIANGLES, monitorWinIdxSize/2, GL_UNSIGNED_SHORT, 0 );
-
-	// render right eye (second half of index array )
-	glBindTexture(GL_TEXTURE_2D, rightEyeDesc.m_nResolveTextureId  );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR );
-	glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
-	glDrawElements( GL_TRIANGLES, monitorWinIdxSize/2, GL_UNSIGNED_SHORT, (const void *)(monitorWinIdxSize) );
-
-	glBindVertexArray( 0 );
-	glUseProgram( 0 );
-}
-
-Matrix4 App::GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye )
-{
-	Matrix4 matMVP;
-	if( nEye == vr::Eye_Left )
-	{
-		matMVP = leftEyeProj * leftEyePos * m_mat4HMDPose;
-	}
-	else if( nEye == vr::Eye_Right )
-	{
-		matMVP = rightEyeProj * rightEyePos *  m_mat4HMDPose;
-	}
-
-	return matMVP;
-}
-
-void App::UpdateHMDMatrixPose()
-{
-	if ( !hmd )
-		return;
-
-	vr::VRCompositor()->WaitGetPoses(devicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0 );
-
-	m_iValidPoseCount = 0;
-	m_strPoseClasses = "";
-	for ( int nDevice = 0; nDevice < vr::k_unMaxTrackedDeviceCount; ++nDevice )
-	{
-		if ( devicePose[nDevice].bPoseIsValid )
-		{
-			m_iValidPoseCount++;
-			devicePoseMat[nDevice] = ConvertSteamVRMatrixToMatrix4( devicePose[nDevice].mDeviceToAbsoluteTracking );
-			if (m_rDevClassChar[nDevice]==0)
-			{
-				switch (hmd->GetTrackedDeviceClass(nDevice))
-				{
-				case vr::TrackedDeviceClass_Controller:        m_rDevClassChar[nDevice] = 'C'; break;
-				case vr::TrackedDeviceClass_HMD:               m_rDevClassChar[nDevice] = 'H'; break;
-				case vr::TrackedDeviceClass_Invalid:           m_rDevClassChar[nDevice] = 'I'; break;
-				case vr::TrackedDeviceClass_GenericTracker:    m_rDevClassChar[nDevice] = 'G'; break;
-				case vr::TrackedDeviceClass_TrackingReference: m_rDevClassChar[nDevice] = 'T'; break;
-				default:                                       m_rDevClassChar[nDevice] = '?'; break;
-				}
-			}
-			m_strPoseClasses += m_rDevClassChar[nDevice];
-		}
-	}
-
-	if ( devicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid )
-	{
-		m_mat4HMDPose = devicePoseMat[vr::k_unTrackedDeviceIndex_Hmd];
-		m_mat4HMDPose.invert();
-	}
-}
-
 Matrix4 App::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose )
 {
 	Matrix4 matrixObj(
@@ -1083,9 +1044,9 @@ void App::Shutdown()
 			glDeleteVertexArrays( 1, &sceneVertexAr );
 			sceneVertexAr = 0;
 		}
-		if( m_unControllerVAO != 0 )
+		if( controllerVertAr != 0 )
 		{
-			glDeleteVertexArrays( 1, &m_unControllerVAO );
+			glDeleteVertexArrays( 1, &controllerVertAr );
 		}
 	}
 
