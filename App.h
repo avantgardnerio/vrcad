@@ -69,7 +69,6 @@ public:
 
 	// GL util
 	GLuint loadShader(std::string name);
-	GLuint compileShader(const char *pchShaderName, const char *pchVertexShader, const char *pchFragmentShader);
 	bool createShaders();
 	bool createFrameBuffer(int nWidth, int nHeight, FramebufferDesc &framebufferDesc);
 

@@ -149,6 +149,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="GlUtil.h" />
     <ClInclude Include="CGLRenderModel.h" />
     <ClInclude Include="App.h" />
     <ClInclude Include="Polygon.h" />
@@ -161,6 +162,7 @@
     <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\Vectors.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="GlUtil.cpp" />
     <ClCompile Include="CGLRenderModel.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Polygon.cpp" />
