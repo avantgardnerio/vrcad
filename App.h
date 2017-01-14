@@ -26,7 +26,6 @@ public:
 	bool init();
 	bool initGl();
 	GLuint App::loadShader(std::string name);
-	bool BInitCompositor();
 	void App::RegenVB();
 
 	void SetupRenderModels();

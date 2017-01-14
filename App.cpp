@@ -90,8 +90,8 @@ bool App::init() {
 	// Setup openvr
 	m_strDriver = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
 	m_strDisplay = getDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
-	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
-	SDL_SetWindowTitle(monitorWindow, strWindowTitle.c_str());
+	std::string title = "hellovr - " + m_strDriver + " " + m_strDisplay;
+	SDL_SetWindowTitle(monitorWindow, title.c_str());
 
 	// cube array
 	brickTextureId = 0;
@@ -102,11 +102,11 @@ bool App::init() {
 		return false;
 	}
 
-	if (!BInitCompositor()) {
-		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
+	if (!vr::VRCompositor()) {
+		printf("Compositor initialization failed. See log file for details\n", __FUNCTION__);
 		return false;
 	}
-	 
+
 	return true;
 }
 
@@ -224,19 +224,6 @@ void App::ThreadSleep( unsigned long nMilliseconds )
 void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf( "GL Error: %s\n", message );
-}
-
-bool App::BInitCompositor()
-{
-	vr::EVRInitError peError = vr::VRInitError_None;
-
-	if ( !vr::VRCompositor() )
-	{
-		printf( "Compositor initialization failed. See log file for details\n" );
-		return false;
-	}
-
-	return true;
 }
 
 void App::RegenVB() {
