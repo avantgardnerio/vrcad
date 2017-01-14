@@ -9,8 +9,7 @@ App::App( int argc, char *argv[] ) {
 	m_unCompanionWindowProgramID = 0;
 	m_unControllerTransformProgramID = 0;
 	m_unRenderModelProgramID = 0;
-	m_pHMD = NULL;
-	m_pRenderModels = NULL;
+	hmd = NULL;
 	m_bPerf = false;
 	m_glControllerVertBuffer = 0;
 	m_unControllerVAO = 0;
@@ -37,7 +36,92 @@ App::~App() {
 	printf( "Shutdown" );
 }
 
-std::string App::GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL )
+bool App::init() {
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) < 0) {
+		printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		return false;
+	}
+
+	// Loading the SteamVR Runtime
+	vr::EVRInitError eError = vr::VRInitError_None;
+	hmd = vr::VR_Init(&eError, vr::VRApplication_Scene);
+	if (eError != vr::VRInitError_None) {
+		hmd = NULL;
+		char buf[1024];
+		sprintf_s(buf, sizeof(buf), "Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription(eError));
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL);
+		return false;
+	}
+
+	int nWindowPosX = 700;
+	int nWindowPosY = 100;
+	Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
+
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+
+	m_pCompanionWindow = SDL_CreateWindow("hellovr", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags);
+	if (m_pCompanionWindow == NULL) {
+		printf("%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		return false;
+	}
+
+	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
+	if (m_pContext == NULL) {
+		printf("%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
+		return false;
+	}
+
+	glewExperimental = GL_TRUE;
+	GLenum nGlewError = glewInit();
+	if (nGlewError != GLEW_OK) {
+		printf("%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString(nGlewError));
+		return false;
+	}
+	glGetError(); // to clear the error caused deep in GLEW
+
+	m_strDriver = "No Driver";
+	m_strDisplay = "No Display";
+
+	m_strDriver = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String);
+	m_strDisplay = GetTrackedDeviceString(hmd, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String);
+
+	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
+	SDL_SetWindowTitle(m_pCompanionWindow, strWindowTitle.c_str());
+
+	// cube array
+	m_iSceneVolumeWidth = m_iSceneVolumeInit;
+	m_iSceneVolumeHeight = m_iSceneVolumeInit;
+	m_iSceneVolumeDepth = m_iSceneVolumeInit;
+
+	m_fScale = 10.0f;
+	m_fScaleSpacing = 8.0f;
+
+	m_fNearClip = 0.1f;
+	m_fFarClip = 30.0f;
+
+	m_iTexture = 0;
+	m_uiVertcount = 0;
+
+	if (!BInitGL()) {
+		printf("%s - Unable to initialize OpenGL!\n", __FUNCTION__);
+		return false;
+	}
+
+	if (!BInitCompositor()) {
+		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
+		return false;
+	}
+
+	return true;
+}
+
+std::string App::GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError )
 {
 	uint32_t unRequiredBufferLen = pHmd->GetStringTrackedDeviceProperty( unDevice, prop, NULL, 0, peError );
 	if( unRequiredBufferLen == 0 )
@@ -62,116 +146,6 @@ void App::ThreadSleep( unsigned long nMilliseconds )
 void APIENTRY App::DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam)
 {
 	printf( "GL Error: %s\n", message );
-}
-
-bool App::BInit()
-{
-	if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_TIMER ) < 0 )
-	{
-		printf("%s - SDL could not initialize! SDL Error: %s\n", __FUNCTION__, SDL_GetError());
-		return false;
-	}
-
-	// Loading the SteamVR Runtime
-	vr::EVRInitError eError = vr::VRInitError_None;
-	m_pHMD = vr::VR_Init( &eError, vr::VRApplication_Scene );
-
-	if ( eError != vr::VRInitError_None )
-	{
-		m_pHMD = NULL;
-		char buf[1024];
-		sprintf_s( buf, sizeof( buf ), "Unable to init VR runtime: %s", vr::VR_GetVRInitErrorAsEnglishDescription( eError ) );
-		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL );
-		return false;
-	}
-
-
-	m_pRenderModels = (vr::IVRRenderModels *)vr::VR_GetGenericInterface( vr::IVRRenderModels_Version, &eError );
-	if( !m_pRenderModels )
-	{
-		m_pHMD = NULL;
-		vr::VR_Shutdown();
-
-		char buf[1024];
-		sprintf_s( buf, sizeof( buf ), "Unable to get render model interface: %s", vr::VR_GetVRInitErrorAsEnglishDescription( eError ) );
-		SDL_ShowSimpleMessageBox( SDL_MESSAGEBOX_ERROR, "VR_Init Failed", buf, NULL );
-		return false;
-	}
-
-	int nWindowPosX = 700;
-	int nWindowPosY = 100;
-	Uint32 unWindowFlags = SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN;
-
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MAJOR_VERSION, 4 );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_MINOR_VERSION, 1 );
-	//SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY );
-	SDL_GL_SetAttribute( SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE );
-
-	SDL_GL_SetAttribute( SDL_GL_MULTISAMPLEBUFFERS, 0 );
-	SDL_GL_SetAttribute( SDL_GL_MULTISAMPLESAMPLES, 0 );
-
-	m_pCompanionWindow = SDL_CreateWindow( "hellovr", nWindowPosX, nWindowPosY, m_nCompanionWindowWidth, m_nCompanionWindowHeight, unWindowFlags );
-	if (m_pCompanionWindow == NULL)
-	{
-		printf( "%s - Window could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError() );
-		return false;
-	}
-
-	m_pContext = SDL_GL_CreateContext(m_pCompanionWindow);
-	if (m_pContext == NULL)
-	{
-		printf( "%s - OpenGL context could not be created! SDL Error: %s\n", __FUNCTION__, SDL_GetError() );
-		return false;
-	}
-
-	glewExperimental = GL_TRUE;
-	GLenum nGlewError = glewInit();
-	if (nGlewError != GLEW_OK)
-	{
-		printf( "%s - Error initializing GLEW! %s\n", __FUNCTION__, glewGetErrorString( nGlewError ) );
-		return false;
-	}
-	glGetError(); // to clear the error caused deep in GLEW
-
-	m_strDriver = "No Driver";
-	m_strDisplay = "No Display";
-
-	m_strDriver = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_TrackingSystemName_String );
-	m_strDisplay = GetTrackedDeviceString( m_pHMD, vr::k_unTrackedDeviceIndex_Hmd, vr::Prop_SerialNumber_String );
-
-	std::string strWindowTitle = "hellovr - " + m_strDriver + " " + m_strDisplay;
-	SDL_SetWindowTitle( m_pCompanionWindow, strWindowTitle.c_str() );
-	
-	// cube array
- 	m_iSceneVolumeWidth = m_iSceneVolumeInit;
- 	m_iSceneVolumeHeight = m_iSceneVolumeInit;
- 	m_iSceneVolumeDepth = m_iSceneVolumeInit;
- 		
- 	m_fScale = 10.0f;
- 	m_fScaleSpacing = 8.0f;
- 
- 	m_fNearClip = 0.1f;
- 	m_fFarClip = 30.0f;
- 
- 	m_iTexture = 0;
- 	m_uiVertcount = 0;
- 
-// 		m_MillisecondsTimer.start(1, this);
-// 		m_SecondsTimer.start(1000, this);
-	
-	if (!BInitGL())
-	{
-		printf("%s - Unable to initialize OpenGL!\n", __FUNCTION__);
-		return false;
-	}
-
-	if (!BInitCompositor())
-	{
-		printf("%s - Failed to initialize VR Compositor!\n", __FUNCTION__);
-		return false;
-	}
-
-	return true;
 }
 
 bool App::BInitGL()
@@ -261,7 +235,7 @@ bool App::HandleInput()
 
 	// Process SteamVR events
 	vr::VREvent_t event;
-	while( m_pHMD->PollNextEvent( &event, sizeof( event ) ) ) {
+	while( hmd->PollNextEvent( &event, sizeof( event ) ) ) {
 		ProcessVREvent( event );
 	}
 
@@ -270,14 +244,14 @@ bool App::HandleInput()
 	bool dirty = false;
 	for( vr::TrackedDeviceIndex_t unDevice = 0; unDevice < vr::k_unMaxTrackedDeviceCount; unDevice++ ) {
 		vr::VRControllerState_t state;
-		if( !m_pHMD->GetControllerState( unDevice, &state, sizeof(state) ) ) {
+		if( !hmd->GetControllerState( unDevice, &state, sizeof(state) ) ) {
 			continue;
 		}
 		const vr::TrackedDevicePose_t & pose = m_rTrackedDevicePose[ unDevice ];
 		if( !pose.bPoseIsValid ) {
 			continue;
 		}
-		if( m_pHMD->GetTrackedDeviceClass( unDevice ) != vr::TrackedDeviceClass_Controller ) {
+		if( hmd->GetTrackedDeviceClass( unDevice ) != vr::TrackedDeviceClass_Controller ) {
 			continue;
 		}
 		if(unDevice == 0) {
@@ -396,7 +370,7 @@ void App::ProcessVREvent( const vr::VREvent_t & event )
 void App::RenderFrame()
 {
 	// for now as fast as possible
-	if ( m_pHMD )
+	if ( hmd )
 	{
 		RenderControllerAxes();
 		RenderStereoTargets();
@@ -653,7 +627,7 @@ bool App::SetupTexturemaps()
 
 void App::RenderControllerAxes() {
 	// don't draw controllers if somebody else has input focus
-	if( m_pHMD->IsInputFocusCapturedByAnotherProcess() )
+	if( hmd->IsInputFocusCapturedByAnotherProcess() )
 		return;
 
 	std::vector<float> vertdataarray;
@@ -663,10 +637,10 @@ void App::RenderControllerAxes() {
 
 	float hght = 0.0f;
 	for ( vr::TrackedDeviceIndex_t unTrackedDevice = vr::k_unTrackedDeviceIndex_Hmd + 1; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; ++unTrackedDevice ) {
-		if ( !m_pHMD->IsTrackedDeviceConnected( unTrackedDevice ) )
+		if ( !hmd->IsTrackedDeviceConnected( unTrackedDevice ) )
 			continue;
 
-		if( m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) != vr::TrackedDeviceClass_Controller )
+		if( hmd->GetTrackedDeviceClass( unTrackedDevice ) != vr::TrackedDeviceClass_Controller )
 			continue;
 
 		m_iTrackedControllerCount += 1;
@@ -801,10 +775,10 @@ bool App::CreateFrameBuffer( int nWidth, int nHeight, FramebufferDesc &framebuff
 
 bool App::SetupStereoRenderTargets()
 {
-	if ( !m_pHMD )
+	if ( !hmd )
 		return false;
 
-	m_pHMD->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
+	hmd->GetRecommendedRenderTargetSize( &m_nRenderWidth, &m_nRenderHeight );
 
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, leftEyeDesc );
 	CreateFrameBuffer( m_nRenderWidth, m_nRenderHeight, rightEyeDesc );
@@ -814,7 +788,7 @@ bool App::SetupStereoRenderTargets()
 
 void App::SetupCompanionWindow()
 {
-	if ( !m_pHMD )
+	if ( !hmd )
 		return;
 
 	std::vector<VertexDataWindow> vVerts;
@@ -916,7 +890,7 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 	glDrawArrays( GL_TRIANGLES, 0, m_uiVertcount );
 	glBindVertexArray( 0 );
 
-	bool inputCapturedByAnotherProcess = m_pHMD->IsInputFocusCapturedByAnotherProcess();
+	bool inputCapturedByAnotherProcess = hmd->IsInputFocusCapturedByAnotherProcess();
 
 	if( !inputCapturedByAnotherProcess )
 	{
@@ -940,7 +914,7 @@ void App::RenderScene( vr::Hmd_Eye nEye )
 		if( !pose.bPoseIsValid )
 			continue;
 
-		if( inputCapturedByAnotherProcess && m_pHMD->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
+		if( inputCapturedByAnotherProcess && hmd->GetTrackedDeviceClass( unTrackedDevice ) == vr::TrackedDeviceClass_Controller )
 			continue;
 
 		const Matrix4 & matDeviceToTracking = m_rmat4DevicePose[ unTrackedDevice ];
@@ -983,10 +957,10 @@ void App::RenderCompanionWindow()
 
 Matrix4 App::GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye )
 {
-	if ( !m_pHMD )
+	if ( !hmd )
 		return Matrix4();
 
-	vr::HmdMatrix44_t mat = m_pHMD->GetProjectionMatrix( nEye, m_fNearClip, m_fFarClip );
+	vr::HmdMatrix44_t mat = hmd->GetProjectionMatrix( nEye, m_fNearClip, m_fFarClip );
 
 	return Matrix4(
 		mat.m[0][0], mat.m[1][0], mat.m[2][0], mat.m[3][0],
@@ -998,10 +972,10 @@ Matrix4 App::GetHMDMatrixProjectionEye( vr::Hmd_Eye nEye )
 
 Matrix4 App::GetHMDMatrixPoseEye( vr::Hmd_Eye nEye )
 {
-	if ( !m_pHMD )
+	if ( !hmd )
 		return Matrix4();
 
-	vr::HmdMatrix34_t matEyeRight = m_pHMD->GetEyeToHeadTransform( nEye );
+	vr::HmdMatrix34_t matEyeRight = hmd->GetEyeToHeadTransform( nEye );
 	Matrix4 matrixObj(
 		matEyeRight.m[0][0], matEyeRight.m[1][0], matEyeRight.m[2][0], 0.0, 
 		matEyeRight.m[0][1], matEyeRight.m[1][1], matEyeRight.m[2][1], 0.0,
@@ -1029,7 +1003,7 @@ Matrix4 App::GetCurrentViewProjectionMatrix( vr::Hmd_Eye nEye )
 
 void App::UpdateHMDMatrixPose()
 {
-	if ( !m_pHMD )
+	if ( !hmd )
 		return;
 
 	vr::VRCompositor()->WaitGetPoses(m_rTrackedDevicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0 );
@@ -1044,7 +1018,7 @@ void App::UpdateHMDMatrixPose()
 			m_rmat4DevicePose[nDevice] = ConvertSteamVRMatrixToMatrix4( m_rTrackedDevicePose[nDevice].mDeviceToAbsoluteTracking );
 			if (m_rDevClassChar[nDevice]==0)
 			{
-				switch (m_pHMD->GetTrackedDeviceClass(nDevice))
+				switch (hmd->GetTrackedDeviceClass(nDevice))
 				{
 				case vr::TrackedDeviceClass_Controller:        m_rDevClassChar[nDevice] = 'C'; break;
 				case vr::TrackedDeviceClass_HMD:               m_rDevClassChar[nDevice] = 'H'; break;
@@ -1137,11 +1111,11 @@ void App::SetupRenderModelForTrackedDevice( vr::TrackedDeviceIndex_t unTrackedDe
 		return;
 
 	// try to find a model we've already set up
-	std::string sRenderModelName = GetTrackedDeviceString( m_pHMD, unTrackedDeviceIndex, vr::Prop_RenderModelName_String );
+	std::string sRenderModelName = GetTrackedDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_RenderModelName_String );
 	CGLRenderModel *pRenderModel = FindOrLoadRenderModel( sRenderModelName.c_str() );
 	if( !pRenderModel )
 	{
-		std::string sTrackingSystemName = GetTrackedDeviceString( m_pHMD, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String );
+		std::string sTrackingSystemName = GetTrackedDeviceString( hmd, unTrackedDeviceIndex, vr::Prop_TrackingSystemName_String );
 		printf( "Unable to load render model for tracked device %d (%s.%s)", unTrackedDeviceIndex, sTrackingSystemName.c_str(), sRenderModelName.c_str() );
 	}
 	else
@@ -1155,12 +1129,12 @@ void App::SetupRenderModels()
 {
 	memset( m_rTrackedDeviceToRenderModel, 0, sizeof( m_rTrackedDeviceToRenderModel ) );
 
-	if( !m_pHMD )
+	if( !hmd )
 		return;
 
 	for( uint32_t unTrackedDevice = vr::k_unTrackedDeviceIndex_Hmd + 1; unTrackedDevice < vr::k_unMaxTrackedDeviceCount; unTrackedDevice++ )
 	{
-		if( !m_pHMD->IsTrackedDeviceConnected( unTrackedDevice ) )
+		if( !hmd->IsTrackedDeviceConnected( unTrackedDevice ) )
 			continue;
 
 		SetupRenderModelForTrackedDevice( unTrackedDevice );
@@ -1181,10 +1155,10 @@ Matrix4 App::ConvertSteamVRMatrixToMatrix4( const vr::HmdMatrix34_t &matPose )
 
 void App::Shutdown()
 {
-	if( m_pHMD )
+	if( hmd )
 	{
 		vr::VR_Shutdown();
-		m_pHMD = NULL;
+		hmd = NULL;
 	}
 
 	for( std::vector< CGLRenderModel * >::iterator i = m_vecRenderModels.begin(); i != m_vecRenderModels.end(); i++ )

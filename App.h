@@ -23,7 +23,7 @@ public:
 	virtual ~App();
 
 	const char *byte_to_binary(int x);
-	bool BInit();
+	bool init();
 	bool BInitGL();
 	bool BInitCompositor();
 	void App::RegenVB();
@@ -49,7 +49,7 @@ public:
 	void RenderCompanionWindow();
 	void RenderScene( vr::Hmd_Eye nEye );
 
-	std::string GetTrackedDeviceString( vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError );
+	std::string App::GetTrackedDeviceString(vr::IVRSystem *pHmd, vr::TrackedDeviceIndex_t unDevice, vr::TrackedDeviceProperty prop, vr::TrackedPropertyError *peError = NULL);
 	void ThreadSleep( unsigned long nMilliseconds );
 	void dprintf( const char *fmt, ... );
 	static void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const char* message, const void* userParam);
@@ -83,8 +83,7 @@ private:
 	std::vector<net_squarelabs::Polygon> polygons;
 	bool buttonPressed;
 
-	vr::IVRSystem *m_pHMD;
-	vr::IVRRenderModels *m_pRenderModels;
+	vr::IVRSystem *hmd;
 	std::string m_strDriver;
 	std::string m_strDisplay;
 	vr::TrackedDevicePose_t m_rTrackedDevicePose[ vr::k_unMaxTrackedDeviceCount ];

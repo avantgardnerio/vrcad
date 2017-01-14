@@ -18,7 +18,7 @@
 int main(int argc, char *argv[]) {
 	App *app = new App(argc, argv);
 
-	if (!app->BInit()) {
+	if (!app->init()) {
 		app->Shutdown();
 		return 1;
 	}
