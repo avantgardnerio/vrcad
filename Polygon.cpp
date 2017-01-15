@@ -42,7 +42,7 @@ namespace net_squarelabs {
 		vertices.push_back(vertex);
 	}
 
-	void Polygon::addToVb(std::vector<float> &vertdataarray) {
+	void Polygon::renderRoom(std::vector<float> &vertdataarray) {
 		float u2 = 10;
 		float v2 = 24;
 
@@ -60,9 +60,9 @@ namespace net_squarelabs {
 		}
 	}
 
-	void Polygon::addToVb2(std::vector<float> &vertdataarray) {
+	void Polygon::renderLines(std::vector<float> &vertdataarray) {
 		Vector3 color( 1, 1, 1 );
-		for (unsigned i=0; i<vertices.size(); i++) {
+		for (unsigned i=0; i<vertices.size()-1; i++) {
 			Vector2 start = vertices.at(i);
 			Vector2 end = vertices.at((i+1) % vertices.size());
 			vertdataarray.push_back( start.x );vertdataarray.push_back( height );vertdataarray.push_back( start.y );

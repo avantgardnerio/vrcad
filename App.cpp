@@ -104,9 +104,9 @@ bool App::handleInput() {
 			float t = (pointOnPlane - rayOrigin).dot(planeNormal) / denom;
 			if (t <= 0) {
 				Vector3 isec = rayOrigin + (rayDirection * t);
-				isec.x = floor(isec.x * 10.0f) / 10.0f;
+				isec.x = roundf(isec.x * 10.0f) / 10.0f;
 				isec.y = 0.0f;
-				isec.z = floor(isec.z * 10.0f) / 10.0f;
+				isec.z = roundf(isec.z * 10.0f) / 10.0f;
 				Vector2 isec2d = Vector2(isec.x, isec.z);
 				if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 					//printf("%s\n", byte_to_binary(state.ulButtonPressed));
@@ -160,7 +160,7 @@ void App::regenVB() {
 	std::vector<float> floatAr;
 
 	for (auto polygon = polygons.begin(); polygon < polygons.end(); ++polygon) {
-		polygon->addToVb(floatAr);
+		polygon->renderRoom(floatAr);
 	}
 
 	sceneVertCount = floatAr.size() / 5;
@@ -260,10 +260,10 @@ void App::renderControllerAxes() {
 	}
 
 	if (mode == draw && currentPolygon != nullptr) {
-		currentPolygon->addToVb2(floatAr);
+		currentPolygon->renderLines(floatAr);
 	} else if (mode == extrude) {
 		currentPolygon->setHeight(height);
-		currentPolygon->addToVb2(floatAr);
+		currentPolygon->renderLines(floatAr);
 		regenVB();
 	}
 	controllerVertCount = floatAr.size() / 6;

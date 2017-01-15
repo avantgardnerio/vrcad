@@ -29,8 +29,8 @@ namespace net_squarelabs
 
 		void Polygon::addCubeVertex( float fl0, float fl1, float fl2, float fl3, float fl4, std::vector<float> &vertdata );
 		void Polygon::addCubeToScene( Matrix4 mat, std::vector<float> &vertdata );
-		void Polygon::addToVb(std::vector<float> &vertdataarray);
-		void Polygon::addToVb2(std::vector<float> &vertdataarray);
+		void Polygon::renderRoom(std::vector<float> &vertdataarray);
+		void Polygon::renderLines(std::vector<float> &vertdataarray);
 
 	private:
 		std::vector<Vector2> vertices;
