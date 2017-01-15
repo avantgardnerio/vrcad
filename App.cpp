@@ -3,6 +3,7 @@
 #include <streambuf>
 
 #include "GlUtil.h"
+#include "Geom.h"
 #include "App.h"
 
 App::App( int argc, char *argv[] ) {
@@ -95,50 +96,44 @@ bool App::handleInput() {
 		Vector3 planeNormal(0, 1, 0); // Floor points up
 		Vector3 pointOnPlane(0, 0, 0); // World origin is on our plane
 		Vector3 rayOrigin = controllerMat * Vector3(0, 0, 0);
-		Vector3 rayDirection = controllerMat * Vector3(0, 0, 1);
-		rayDirection -= rayOrigin;
-		rayDirection.normalize();
-		Vector3 offset = rayDirection;
-		float denom = planeNormal.dot(rayDirection);
-		if (fabs(denom) > 0.000001f) {
-			float t = (pointOnPlane - rayOrigin).dot(planeNormal) / denom;
-			if (t <= 0) {
-				Vector3 isec = rayOrigin + (rayDirection * t);
-				isec.x = roundf(isec.x * 10.0f) / 10.0f;
-				isec.y = 0.0f;
-				isec.z = roundf(isec.z * 10.0f) / 10.0f;
-				Vector2 isec2d = Vector2(isec.x, isec.z);
-				if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
-					//printf("%s\n", byte_to_binary(state.ulButtonPressed));
-					if (currentPolygon == nullptr) {
-						currentController = deviceIdx;
-						currentPolygon = new net_squarelabs::Polygon();
-						currentPolygon->addVertex(isec2d);
-						currentPolygon->addVertex(isec2d);
-						mode = draw;
-					}
-					else {
-						if (mode == draw) {
-							if (isec2d == currentPolygon->getFirstVertex()) {
-								mode = extrude;
-							}
-							else {
-								currentPolygon->addVertex(isec2d);
-							}
+		Vector3 rayDirection = (controllerMat * Vector3(0, 0, 1)) - rayOrigin;
+		Vector3 isec;
+		float t = geom::rayPlaneIsec(planeNormal, pointOnPlane, rayOrigin, rayDirection, isec);
+		if (t < 0) {
+			isec.x = roundf(isec.x * 10.0f) / 10.0f;
+			isec.y = 0.0f;
+			isec.z = roundf(isec.z * 10.0f) / 10.0f;
+			Vector2 isec2d = Vector2(isec.x, isec.z);
+			if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
+				//printf("%s\n", byte_to_binary(state.ulButtonPressed));
+				if (currentPolygon == nullptr) {
+					currentController = deviceIdx;
+					currentPolygon = new net_squarelabs::Polygon();
+					currentPolygon->addVertex(isec2d);
+					currentPolygon->addVertex(isec2d);
+					mode = draw;
+				}
+				else {
+					if (mode == draw) {
+						if (isec2d == currentPolygon->getFirstVertex()) {
+							mode = extrude;
 						}
-						else if (mode == extrude) {
-							polygons.push_back(*currentPolygon);
-							delete currentPolygon;
-							currentPolygon = nullptr;
-							dirty = true;
-							mode = none;
+						else {
+							currentPolygon->addVertex(isec2d);
 						}
 					}
+					else if (mode == extrude) {
+						polygons.push_back(*currentPolygon);
+						delete currentPolygon;
+						currentPolygon = nullptr;
+						dirty = true;
+						mode = none;
+					}
 				}
-				if (currentPolygon != nullptr && mode == draw) {
-					currentPolygon->updateLastVertex(isec2d);
-					dirty = true;
-				}
+			}
+			if (currentPolygon != nullptr && mode == draw) {
+				currentPolygon->updateLastVertex(isec2d);
+				dirty = true;
 			}
 		}
 		if (controllerState.ulButtonPressed != 0) {

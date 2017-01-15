@@ -147,6 +147,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Geom.h" />
     <ClInclude Include="GlUtil.h" />
     <ClInclude Include="CGLRenderModel.h" />
     <ClInclude Include="App.h" />
@@ -159,6 +160,7 @@
     <ClInclude Include="Vectors.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Geom.cpp" />
     <ClCompile Include="GlUtil.cpp" />
     <ClCompile Include="CGLRenderModel.cpp" />
     <ClCompile Include="App.cpp" />
