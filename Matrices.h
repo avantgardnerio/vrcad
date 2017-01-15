@@ -808,9 +808,11 @@ inline Vector4 Matrix4::operator*(const Vector4& rhs) const
 
 inline Vector3 Matrix4::operator*(const Vector3& rhs) const
 {
-    return Vector3(m[0]*rhs.x + m[4]*rhs.y + m[8]*rhs.z,
-                   m[1]*rhs.x + m[5]*rhs.y + m[9]*rhs.z,
-                   m[2]*rhs.x + m[6]*rhs.y + m[10]*rhs.z);
+	return Vector3(
+		m[0] * rhs.x + m[4] * rhs.y + m[8] * rhs.z + m[12] * 1.0f,
+		m[1] * rhs.x + m[5] * rhs.y + m[9] * rhs.z + m[13] * 1.0f,
+		m[2] * rhs.x + m[6] * rhs.y + m[10] * rhs.z + m[14] * 1.0f
+	);
 }
 
 

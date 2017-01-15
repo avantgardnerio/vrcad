@@ -94,18 +94,16 @@ bool App::handleInput() {
 		const Matrix4 & controllerMat = devicePoseMat[deviceIdx];
 		Vector3 planeNormal(0, 1, 0); // Floor points up
 		Vector3 pointOnPlane(0, 0, 0); // World origin is on our plane
-		Vector4 rayOrigin = controllerMat * Vector4(0, 0, 0, 1);
-		Vector4 rayDirection = controllerMat * Vector4(0, 0, 1, 1);
-		Vector3 ro(rayOrigin.x, rayOrigin.y, rayOrigin.z);
-		Vector3 rd(rayDirection.x, rayDirection.y, rayDirection.z);
-		rd -= ro;
-		rd.normalize();
-		Vector3 offset = rd;
-		float denom = planeNormal.dot(rd);
+		Vector3 rayOrigin = controllerMat * Vector3(0, 0, 0);
+		Vector3 rayDirection = controllerMat * Vector3(0, 0, 1);
+		rayDirection -= rayOrigin;
+		rayDirection.normalize();
+		Vector3 offset = rayDirection;
+		float denom = planeNormal.dot(rayDirection);
 		if (fabs(denom) > 0.000001f) {
-			float t = (pointOnPlane - ro).dot(planeNormal) / denom;
+			float t = (pointOnPlane - rayOrigin).dot(planeNormal) / denom;
 			if (t <= 0) {
-				Vector3 isec = ro + (rd * t);
+				Vector3 isec = rayOrigin + (rayDirection * t);
 				isec.x = floor(isec.x * 10.0f) / 10.0f;
 				isec.z = floor(isec.z * 10.0f) / 10.0f;
 				if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
