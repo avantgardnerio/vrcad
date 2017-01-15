@@ -104,6 +104,9 @@ bool App::handleInput() {
 		if (mode == draw && t < 0) {
 			currentPolygon.updateLastVertex(isec2d);
 		}
+		if (mode == extrude && deviceIdx == currentController) {
+			currentPolygon.setHeight(rayOrigin.y);
+		}
 		if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 			triggerPressed(deviceIdx, t, isec2d);
 		}
@@ -221,7 +224,6 @@ void App::renderControllerAxes() {
 
 	controllerVertCount = 0;
 
-	float height = 0.0f;
 	for (vr::TrackedDeviceIndex_t deviceIdx = vr::k_unTrackedDeviceIndex_Hmd + 1; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
 		if (!hmd->IsTrackedDeviceConnected(deviceIdx))
 			continue;
@@ -235,9 +237,6 @@ void App::renderControllerAxes() {
 		const Matrix4 & mat = devicePoseMat[deviceIdx];
 
 		Vector4 center = mat * Vector4(0, 0, 0, 1);
-		if (deviceIdx == currentController) {
-			height = center.y;
-		}
 
 		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
 		Vector4 end = mat * Vector4(0, 0, -39.f, 1);
@@ -253,7 +252,6 @@ void App::renderControllerAxes() {
 	if (mode == draw) {
 		currentPolygon.renderLines(floatAr);
 	} else if (mode == extrude) {
-		currentPolygon.setHeight(height);
 		currentPolygon.renderLines(floatAr);
 		regenVB();
 	}
