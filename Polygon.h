@@ -14,14 +14,13 @@
 #include "Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
-namespace net_squarelabs
-{
-	struct Polygon
-	{
+namespace geom {
+	struct Polygon {
 	public:
 		Polygon( );
 		~Polygon();
 
+		void Polygon::clear();
 		void addVertex(Vector2 vertex);
 		Vector2 Polygon::getFirstVertex();
 		void Polygon::updateLastVertex(Vector2 vertex);

@@ -24,7 +24,6 @@ App::App( int argc, char *argv[] ) {
 	renderModelShaderMatrix = -1;
 	poseClasses = "";
 	buttonPressed = false;
-	currentPolygon = nullptr;
 	mode = none;
 
 	// other initialization tasks are done in BInit
@@ -106,33 +105,32 @@ bool App::handleInput() {
 			Vector2 isec2d = Vector2(isec.x, isec.z);
 			if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 				//printf("%s\n", byte_to_binary(state.ulButtonPressed));
-				if (currentPolygon == nullptr) {
+				if (mode == none) {
 					currentController = deviceIdx;
-					currentPolygon = new net_squarelabs::Polygon();
-					currentPolygon->addVertex(isec2d);
-					currentPolygon->addVertex(isec2d);
+					currentPolygon.clear();
+					currentPolygon.addVertex(isec2d);
+					currentPolygon.addVertex(isec2d);
 					mode = draw;
 				}
 				else {
 					if (mode == draw) {
-						if (isec2d == currentPolygon->getFirstVertex()) {
+						if (isec2d == currentPolygon.getFirstVertex()) {
 							mode = extrude;
 						}
 						else {
-							currentPolygon->addVertex(isec2d);
+							currentPolygon.addVertex(isec2d);
 						}
 					}
 					else if (mode == extrude) {
-						polygons.push_back(*currentPolygon);
-						delete currentPolygon;
-						currentPolygon = nullptr;
+						polygons.push_back(currentPolygon);
+						currentPolygon.clear();
 						dirty = true;
 						mode = none;
 					}
 				}
 			}
-			if (currentPolygon != nullptr && mode == draw) {
-				currentPolygon->updateLastVertex(isec2d);
+			if (mode == draw) {
+				currentPolygon.updateLastVertex(isec2d);
 				dirty = true;
 			}
 		}
@@ -254,11 +252,11 @@ void App::renderControllerAxes() {
 		floatAr.push_back(color.x); floatAr.push_back(color.y); floatAr.push_back(color.z);
 	}
 
-	if (mode == draw && currentPolygon != nullptr) {
-		currentPolygon->renderLines(floatAr);
+	if (mode == draw) {
+		currentPolygon.renderLines(floatAr);
 	} else if (mode == extrude) {
-		currentPolygon->setHeight(height);
-		currentPolygon->renderLines(floatAr);
+		currentPolygon.setHeight(height);
+		currentPolygon.renderLines(floatAr);
 		regenVB();
 	}
 	controllerVertCount = floatAr.size() / 6;

@@ -86,8 +86,8 @@ private:
 
 	EditMode mode;
 	vr::TrackedDeviceIndex_t currentController;
-	net_squarelabs::Polygon *currentPolygon;
-	std::vector<net_squarelabs::Polygon> polygons;
+	geom::Polygon currentPolygon;
+	std::vector<geom::Polygon> polygons;
 	bool buttonPressed;
 
 	// ---- ???

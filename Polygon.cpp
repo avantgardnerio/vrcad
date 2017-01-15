@@ -16,7 +16,7 @@
 
 #include "Polygon.h"
 
-namespace net_squarelabs {
+namespace geom {
 
 	Polygon::Polygon( ) {
 		height = 0.0f;
@@ -25,7 +25,11 @@ namespace net_squarelabs {
 	Polygon::~Polygon()	{
 	}
 
-	void Polygon::addVertex(Vector2 vertex)	{ // TODO: Vector2
+	void Polygon::clear() {
+		vertices.clear();
+	}
+
+	void Polygon::addVertex(Vector2 vertex)	{
 		vertices.push_back(vertex);
 	}
 
