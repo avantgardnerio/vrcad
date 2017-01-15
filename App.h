@@ -7,8 +7,14 @@
 #include <stdio.h>
 #include <string>
 #include <cstdlib>
+#include <map>
 
 #include <openvr.h>
+
+#include <ft2build.h>
+#include FT_FREETYPE_H  
+
+#include <glm.hpp>
 
 #include "lodepng.h"
 #include "GlUtil.h"
@@ -34,6 +40,15 @@ private:
 		VertexDataWindow(const Vector2 & pos, const Vector2 tex) : position(pos), texCoord(tex) {	}
 	};
 
+	struct Character {
+		GLuint     textureID;  // ID handle of the glyph texture
+		glm::ivec2 Size;       // Size of glyph
+		glm::ivec2 Bearing;    // Offset from baseline to left/top of glyph
+		GLuint     Advance;    // Offset to advance to next glyph
+	};
+
+	std::map<GLchar, Character> Characters;
+
 public:
 	App( int argc, char *argv[] );
 	virtual ~App();
@@ -41,6 +56,7 @@ public:
 	// lifecycle
 	bool init();
 	bool initGl();
+	void App::initFonts();
 	void initDeviceModels();
 	bool loadTextures();
 	bool setupHmdRenderTargets();
@@ -56,6 +72,7 @@ public:
 	void renderToHmd();
 	void renderToMonitorWindow();
 	void renderToEye(vr::Hmd_Eye nEye);
+	void App::renderText(GLuint s, std::string text, GLfloat x, GLfloat y, GLfloat scale, glm::vec3 color);
 
 	// input
 	bool handleInput();
@@ -136,10 +153,15 @@ private: // OpenGL bookkeeping
 	GLuint monitorWindowShader;
 	GLuint controllerShader;
 	GLuint renderModelShader;
+	GLuint fontShader;
 
 	GLint sceneShaderMatrix;
 	GLint controllerShaderMatrix;
 	GLint renderModelShaderMatrix;
+	GLint textColor;
+	GLint textProj;
+
+	GLuint VAO, VBO;
 
 	glutil::FramebufferDesc leftEyeDesc;
 	glutil::FramebufferDesc rightEyeDesc;

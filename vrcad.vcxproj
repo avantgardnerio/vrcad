@@ -89,14 +89,14 @@
       <PreprocessorDefinitions>WIN32;_CRT_NONSTDC_NO_DEPRECATE;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>
       </SDLCheck>
-      <AdditionalIncludeDirectories>thirdparty\sdl2-2.0.3\include;thirdparty\glew\glew-1.11.0\include;thirdparty\openvr-1.0.5\headers</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>thirdparty\sdl2-2.0.3\include;thirdparty\glew\glew-1.11.0\include;thirdparty\openvr-1.0.5\headers;thirdparty\freetype-2.3.5-1-bin\include;thirdparty\freetype-2.3.5-1-bin\include\freetype2;thirdparty\glm</AdditionalIncludeDirectories>
       <PrecompiledHeaderFile />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>thirdparty\openvr-1.0.5\samples\thirdparty\sdl2-2.0.3\bin\win32;thirdparty\openvr-1.0.5\lib\win32;thirdparty\openvr-1.0.5\samples\thirdparty\glew\glew-1.11.0\lib\Release\Win32\;%(AdditionalLibraryDirectories);</AdditionalLibraryDirectories>
-      <AdditionalDependencies>openvr_api.lib;glew32.lib;SDL2.lib;SDL2main.lib;glu32.lib;opengl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>thirdparty\openvr-1.0.5\samples\thirdparty\sdl2-2.0.3\bin\win32;thirdparty\openvr-1.0.5\lib\win32;thirdparty\openvr-1.0.5\samples\thirdparty\glew\glew-1.11.0\lib\Release\Win32\;%(AdditionalLibraryDirectories);thirdparty\freetype-2.3.5-1-bin\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>freetype.lib;openvr_api.lib;glew32.lib;SDL2.lib;SDL2main.lib;glu32.lib;opengl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -171,16 +171,6 @@
     <ClCompile Include="Polygon.cpp" />
     <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.cpp" />
     <ClCompile Include="vrcad.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="assets\ControllerShader.frag" />
-    <None Include="assets\controllerShader.vert" />
-    <None Include="assets\MonitorWindowShader.frag" />
-    <None Include="assets\MonitorWindowShader.vert" />
-    <None Include="assets\RenderModelShader.frag" />
-    <None Include="assets\RenderModelShader.vert" />
-    <None Include="assets\sceneShader.frag" />
-    <None Include="assets\sceneShader.vert" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
