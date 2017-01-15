@@ -51,16 +51,16 @@ void App::mainLoop() {
 }
 
 bool App::handleInput() {
-	SDL_Event sdlEvent;
-	bool bRet = false;
 
+	// SDL input
+	SDL_Event sdlEvent;
+	bool quit = false;
 	while (SDL_PollEvent(&sdlEvent) != 0) {
 		if (sdlEvent.type == SDL_QUIT) {
-			bRet = true;
-		}
-		else if (sdlEvent.type == SDL_KEYDOWN) {
+			quit = true;
+		} else if (sdlEvent.type == SDL_KEYDOWN) {
 			if (sdlEvent.key.keysym.sym == SDLK_ESCAPE || sdlEvent.key.keysym.sym == SDLK_q) {
-				bRet = true;
+				quit = true;
 			}
 		}
 	}
@@ -70,7 +70,6 @@ bool App::handleInput() {
 	while (hmd->PollNextEvent(&event, sizeof(event))) {
 		if(event.eventType == vr::VREvent_TrackedDeviceActivated) {
 			initDeviceModel(event.trackedDeviceIndex);
-			printf("Device %u attached. Setting up render model.\n", event.trackedDeviceIndex);
 		}
 	}
 
@@ -80,11 +79,11 @@ bool App::handleInput() {
 	for (vr::TrackedDeviceIndex_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
 		vr::VRControllerState_t controllerState;
 		if (!hmd->GetControllerState(deviceIdx, &controllerState, sizeof(controllerState))) {
-			continue;
+			continue; // Unable to get state
 		}
 		const vr::TrackedDevicePose_t & pose = devicePose[deviceIdx];
 		if (!pose.bPoseIsValid) {
-			continue;
+			continue; // Invalid pose (not tracking?)
 		}
 		if (hmd->GetTrackedDeviceClass(deviceIdx) != vr::TrackedDeviceClass_Controller) {
 			continue;
@@ -92,19 +91,19 @@ bool App::handleInput() {
 		if (deviceIdx == 0) {
 			continue; // headset?
 		}
-		const Matrix4 & deviceToTrackingMat = devicePoseMat[deviceIdx];
-		Vector3 pnorm(0, 1, 0);
-		Vector3 pop(0, 0, 0);
-		Vector4 rayorigin = deviceToTrackingMat * Vector4(0, 0, 0, 1);
-		Vector4 raydir = deviceToTrackingMat * Vector4(0, 0, 1, 1);
-		Vector3 ro(rayorigin.x, rayorigin.y, rayorigin.z);
-		Vector3 rd(raydir.x, raydir.y, raydir.z);
+		const Matrix4 & controllerMat = devicePoseMat[deviceIdx];
+		Vector3 planeNormal(0, 1, 0); // Floor points up
+		Vector3 pointOnPlane(0, 0, 0); // World origin is on our plane
+		Vector4 rayOrigin = controllerMat * Vector4(0, 0, 0, 1);
+		Vector4 rayDirection = controllerMat * Vector4(0, 0, 1, 1);
+		Vector3 ro(rayOrigin.x, rayOrigin.y, rayOrigin.z);
+		Vector3 rd(rayDirection.x, rayDirection.y, rayDirection.z);
 		rd -= ro;
 		rd.normalize();
 		Vector3 offset = rd;
-		float denom = pnorm.dot(rd);
+		float denom = planeNormal.dot(rd);
 		if (fabs(denom) > 0.000001f) {
-			float t = (pop - ro).dot(pnorm) / denom;
+			float t = (pointOnPlane - ro).dot(planeNormal) / denom;
 			if (t <= 0) {
 				Vector3 isec = ro + (rd * t);
 				isec.x = floor(isec.x * 10.0f) / 10.0f;
@@ -154,7 +153,7 @@ bool App::handleInput() {
 		buttonPressed = false;
 	}
 
-	return bRet;
+	return quit;
 }
 
 void App::regenVB() {
