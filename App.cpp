@@ -105,23 +105,25 @@ bool App::handleInput() {
 			if (t <= 0) {
 				Vector3 isec = rayOrigin + (rayDirection * t);
 				isec.x = floor(isec.x * 10.0f) / 10.0f;
+				isec.y = 0.0f;
 				isec.z = floor(isec.z * 10.0f) / 10.0f;
+				Vector2 isec2d = Vector2(isec.x, isec.z);
 				if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 					//printf("%s\n", byte_to_binary(state.ulButtonPressed));
 					if (currentPolygon == nullptr) {
 						currentController = deviceIdx;
 						currentPolygon = new net_squarelabs::Polygon();
-						currentPolygon->addVertex(isec);
-						currentPolygon->addVertex(isec);
+						currentPolygon->addVertex(isec2d);
+						currentPolygon->addVertex(isec2d);
 						mode = draw;
 					}
 					else {
 						if (mode == draw) {
-							if (isec == currentPolygon->getFirstVertex()) {
+							if (isec2d == currentPolygon->getFirstVertex()) {
 								mode = extrude;
 							}
 							else {
-								currentPolygon->addVertex(isec);
+								currentPolygon->addVertex(isec2d);
 							}
 						}
 						else if (mode == extrude) {
@@ -134,7 +136,7 @@ bool App::handleInput() {
 					}
 				}
 				if (currentPolygon != nullptr && mode == draw) {
-					currentPolygon->updateLastVertex(isec);
+					currentPolygon->updateLastVertex(isec2d);
 					dirty = true;
 				}
 			}

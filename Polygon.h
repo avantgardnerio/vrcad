@@ -22,9 +22,9 @@ namespace net_squarelabs
 		Polygon( );
 		~Polygon();
 
-		void addVertex(Vector3 vertex);
-		Vector3 Polygon::getFirstVertex();
-		void Polygon::updateLastVertex(Vector3 vertex);
+		void addVertex(Vector2 vertex);
+		Vector2 Polygon::getFirstVertex();
+		void Polygon::updateLastVertex(Vector2 vertex);
 		void Polygon::setHeight(float height);
 
 		void Polygon::addCubeVertex( float fl0, float fl1, float fl2, float fl3, float fl4, std::vector<float> &vertdata );
@@ -33,7 +33,7 @@ namespace net_squarelabs
 		void Polygon::addToVb2(std::vector<float> &vertdataarray);
 
 	private:
-		std::vector<Vector3> vertices;
+		std::vector<Vector2> vertices;
 		float height;
 	};
 }

@@ -25,11 +25,11 @@ namespace net_squarelabs {
 	Polygon::~Polygon()	{
 	}
 
-	void Polygon::addVertex(Vector3 vertex)	{ // TODO: Vector2
+	void Polygon::addVertex(Vector2 vertex)	{ // TODO: Vector2
 		vertices.push_back(vertex);
 	}
 
-	Vector3 Polygon::getFirstVertex() {
+	Vector2 Polygon::getFirstVertex() {
 		return vertices.front();
 	}
 
@@ -37,7 +37,7 @@ namespace net_squarelabs {
 		height = h;
 	}
 
-	void Polygon::updateLastVertex(Vector3 vertex) {
+	void Polygon::updateLastVertex(Vector2 vertex) {
 		vertices.pop_back();
 		vertices.push_back(vertex);
 	}
@@ -47,28 +47,28 @@ namespace net_squarelabs {
 		float v2 = 24;
 
 		for (unsigned i=0; i<vertices.size(); i++) {
-			Vector3 start = vertices.at(i);
-			Vector3 end = vertices.at((i+1) % vertices.size());
+			Vector2 start = vertices.at(i);
+			Vector2 end = vertices.at((i+1) % vertices.size());
 
-			addCubeVertex( start.x, height, start.z,	0,	v2, vertdataarray );
-			addCubeVertex( end.x,	height, end.z,		u2, v2, vertdataarray );
-			addCubeVertex( end.x,	0,		end.z,		u2, 0,	vertdataarray );
+			addCubeVertex( start.x, height, start.y,	0,	v2, vertdataarray );
+			addCubeVertex( end.x,	height, end.y,		u2, v2, vertdataarray );
+			addCubeVertex( end.x,	0,		end.y,		u2, 0,	vertdataarray );
 
-			addCubeVertex( end.x,	0,		end.z,		u2, 0,	vertdataarray );
-			addCubeVertex( start.x, 0,		start.z,	0,	0,	vertdataarray );
-			addCubeVertex( start.x, height, start.z,	0,	v2, vertdataarray );
+			addCubeVertex( end.x,	0,		end.y,		u2, 0,	vertdataarray );
+			addCubeVertex( start.x, 0,		start.y,	0,	0,	vertdataarray );
+			addCubeVertex( start.x, height, start.y,	0,	v2, vertdataarray );
 		}
 	}
 
 	void Polygon::addToVb2(std::vector<float> &vertdataarray) {
 		Vector3 color( 1, 1, 1 );
 		for (unsigned i=0; i<vertices.size(); i++) {
-			Vector3 start = vertices.at(i);
-			Vector3 end = vertices.at((i+1) % vertices.size());
-			vertdataarray.push_back( start.x );vertdataarray.push_back( height );vertdataarray.push_back( start.z );
+			Vector2 start = vertices.at(i);
+			Vector2 end = vertices.at((i+1) % vertices.size());
+			vertdataarray.push_back( start.x );vertdataarray.push_back( height );vertdataarray.push_back( start.y );
 			vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
 
-			vertdataarray.push_back( end.x );vertdataarray.push_back( height );vertdataarray.push_back( end.z );
+			vertdataarray.push_back( end.x );vertdataarray.push_back( height );vertdataarray.push_back( end.y );
 			vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
 		}
 	}
