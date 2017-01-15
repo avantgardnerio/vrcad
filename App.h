@@ -110,6 +110,9 @@ private:
 	std::vector<geom::Polygon> polygons;
 	bool buttonPressed;
 
+	std::string text;
+	Matrix4 textPos;
+
 	// ---- ???
 
 	vr::IVRSystem *hmd;

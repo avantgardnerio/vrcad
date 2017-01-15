@@ -24,6 +24,8 @@ namespace geom {
 		void addVertex(Vector2 vertex);
 		Vector2 Polygon::getFirstVertex();
 		Vector2 Polygon::getSecondVertex();
+		Vector2 Polygon::getLastVertex();
+		Vector2 Polygon::getSecondToLast();
 		void Polygon::updateLastVertex(Vector2 vertex);
 		void Polygon::setHeight(float height);
 

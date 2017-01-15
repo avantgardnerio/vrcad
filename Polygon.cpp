@@ -41,6 +41,14 @@ namespace geom {
 		return vertices.at(1 % vertices.size()); // TODO: Size == 0?
 	}
 
+	Vector2 Polygon::getLastVertex() {
+		return vertices.back(); // TODO: Size == 0?
+	}
+
+	Vector2 Polygon::getSecondToLast() {
+		return vertices.at(vertices.size() - 2); // TODO: Size == 0?
+	}
+
 	void Polygon::setHeight(float h) {
 		height = h;
 	}

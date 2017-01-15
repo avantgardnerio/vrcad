@@ -538,25 +538,31 @@ Matrix4& Matrix4::rotateX(float angle)
     return *this;
 }
 
-Matrix4& Matrix4::rotateY(float angle)
+Matrix4& Matrix4::rotateY(float deg)
 {
-    float c = cosf(angle * DEG2RAD);
-    float s = sinf(angle * DEG2RAD);
-    float m0 = m[0],  m2 = m[2],
-          m4 = m[4],  m6 = m[6],
-          m8 = m[8],  m10= m[10],
-          m12= m[12], m14= m[14];
-
-    m[0] = m0 * c + m2 * s;
-    m[2] = m0 *-s + m2 * c;
-    m[4] = m4 * c + m6 * s;
-    m[6] = m4 *-s + m6 * c;
-    m[8] = m8 * c + m10* s;
-    m[10]= m8 *-s + m10* c;
-    m[12]= m12* c + m14* s;
-    m[14]= m12*-s + m14* c;
-
+    float c = cosf(deg * DEG2RAD);
+    float s = sinf(deg * DEG2RAD);
+	rotateY(c, s);
     return *this;
+}
+
+Matrix4& Matrix4::rotateY(float c, float s)
+{
+	float m0 = m[0], m2 = m[2],
+		m4 = m[4], m6 = m[6],
+		m8 = m[8], m10 = m[10],
+		m12 = m[12], m14 = m[14];
+
+	m[0] = m0 * c + m2 * s;
+	m[2] = m0 *-s + m2 * c;
+	m[4] = m4 * c + m6 * s;
+	m[6] = m4 *-s + m6 * c;
+	m[8] = m8 * c + m10* s;
+	m[10] = m8 *-s + m10* c;
+	m[12] = m12* c + m14* s;
+	m[14] = m12*-s + m14* c;
+
+	return *this;
 }
 
 Matrix4& Matrix4::rotateZ(float angle)

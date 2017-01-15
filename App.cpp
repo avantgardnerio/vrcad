@@ -1,6 +1,7 @@
 #include <string>
 #include <fstream>
 #include <streambuf>
+#include <string>
 
 #include "GlUtil.h"
 #include "Geom.h"
@@ -107,6 +108,22 @@ bool App::handleInput() {
 
 		// Drawing
 		if (mode == draw && t < 0) {
+			Vector2 last = currentPolygon.getLastVertex();
+			Vector2 second = currentPolygon.getSecondToLast();
+			Vector2 dir = last - second;
+			dir.normalize();
+			float length = (last - second).length();
+
+			char buff[100];
+			snprintf(buff, sizeof(buff), "%0.2f", length);
+			text = buff;
+
+			this->text = text;
+
+			Matrix4 mat;
+			mat.rotateY(dir.x, -dir.y);
+			mat.translate(second.x, 0.0f, second.y);
+			textPos = mat;
 			currentPolygon.updateLastVertex(isec2d);
 		}
 		if (mode == extrude && deviceIdx == currentController) {
@@ -411,14 +428,18 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 	glBindVertexArray(0);
 
 	// Text
+	Matrix4 textInv = textPos;
+	//textInv.invert();
+	Matrix4 textMat = getEyeProjMat(eye);
+	textMat *= textInv;
 	glUseProgram(fontShader);
 	glUniform3f(textColor, 1.0f, 1.0f, 1.0f);
-	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, getEyeProjMat(eye).get());
+	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, textMat.get());
 	glActiveTexture(GL_TEXTURE0);
 	glBindVertexArray(VAO);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	renderText(fontShader, "This is sample text", 0, 0, 0.01f, glm::vec3(1.0f, 1.0f, 1.0f));
+	renderText(fontShader, text, 0, 0, 0.01f, glm::vec3(1.0f, 1.0f, 1.0f));
 
 	// Axises
 	bool inputCaptured = hmd->IsInputFocusCapturedByAnotherProcess();
