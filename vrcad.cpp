@@ -12,7 +12,6 @@
 #include "Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
-#include "stdafx.h"
 #include "App.h"
 
 int main(int argc, char *argv[]) {

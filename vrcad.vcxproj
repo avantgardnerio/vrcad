@@ -90,6 +90,7 @@
       <SDLCheck>
       </SDLCheck>
       <AdditionalIncludeDirectories>thirdparty\sdl2-2.0.3\include;thirdparty\glew\glew-1.11.0\include;thirdparty\openvr-1.0.5\headers</AdditionalIncludeDirectories>
+      <PrecompiledHeaderFile />
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -151,7 +152,6 @@
     <ClInclude Include="App.h" />
     <ClInclude Include="lodepng.h" />
     <ClInclude Include="Polygon.h" />
-    <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="Matrices.h" />
     <ClInclude Include="thirdparty\openvr-1.0.5\samples\shared\compat.h" />
@@ -165,12 +165,6 @@
     <ClCompile Include="lodepng.cpp" />
     <ClCompile Include="Matrices.cpp" />
     <ClCompile Include="Polygon.cpp" />
-    <ClCompile Include="stdafx.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="thirdparty\openvr-1.0.5\samples\shared\pathtools.cpp" />
     <ClCompile Include="vrcad.cpp" />
   </ItemGroup>
