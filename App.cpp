@@ -95,6 +95,7 @@ bool App::handleInput() {
 		Vector3 worldOrigin(0, 0, 0); // World origin is on our plane
 		Vector3 laserOrigin = controllerMat * Vector3(0, 0, 0);
 		Vector3 laserDir = (controllerMat * Vector3(0, 0, 1)) - laserOrigin;
+		Vector3 rightDir = laserDir.cross(floorNorm);
 		Vector3 laserFloorIsec;
 		float t = geom::rayPlaneIsec(floorNorm, worldOrigin, laserOrigin, laserDir, laserFloorIsec);
 		laserFloorIsec.x = roundf(laserFloorIsec.x * 10.0f) / 10.0f;
@@ -121,6 +122,14 @@ bool App::handleInput() {
 		if (controllerState.ulButtonPressed != 0) {
 			anyButtonPressed = true;
 			buttonPressed = true;
+		}
+		Vector2 input(controllerState.rAxis[0].x, controllerState.rAxis[0].y);
+		if (fabs(input.y) >= 0.1f) {
+			Vector3 moveDir = laserDir * input.y * 0.1;
+			torsoPose.translate(moveDir);
+		}
+		if (fabs(input.x) >= 0.1f) {
+			torsoPose.rotateY(input.x);
 		}
 	}
 	regenVB();
@@ -242,7 +251,9 @@ void App::renderControllerAxes() {
 		if (!devicePose[deviceIdx].bPoseIsValid)
 			continue;
 
-		const Matrix4 & mat = devicePoseMat[deviceIdx];
+		Matrix4 torsoInverse = torsoPose;
+		torsoInverse.invert();
+		const Matrix4 & mat = torsoInverse * devicePoseMat[deviceIdx];
 
 		Vector4 center = mat * Vector4(0, 0, 0, 1);
 
@@ -366,8 +377,14 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 		if (inputCaptured && hmd->GetTrackedDeviceClass(deviceIdx) == vr::TrackedDeviceClass_Controller)
 			continue;
 
+		Matrix4 torsoInverse = torsoPose;
+		torsoInverse.invert();
 		const Matrix4 & matDeviceToTracking = devicePoseMat[deviceIdx];
-		Matrix4 matMVP = getEyeProjMat(eye) * matDeviceToTracking;
+		Matrix4 matMVP = getEyeProjMat(eye);
+		if (hmd->GetTrackedDeviceClass(deviceIdx) == vr::TrackedDeviceClass_Controller) {
+			matMVP *= torsoInverse;
+		}
+		matMVP *= matDeviceToTracking;
 		glUniformMatrix4fv(renderModelShaderMatrix, 1, GL_FALSE, matMVP.get());
 		trackedDeviceModels[deviceIdx]->Draw();
 	}
@@ -377,9 +394,9 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 
 Matrix4 App::getEyeProjMat(vr::Hmd_Eye eye) {
 	if (eye == vr::Eye_Left) {
-		return leftEyeProj * leftEyePos * inverseHmdPose;
+		return leftEyeProj * leftEyePos * inverseHmdPose * torsoPose;
 	} else if (eye == vr::Eye_Right) {
-		return rightEyeProj * rightEyePos *  inverseHmdPose;
+		return rightEyeProj * rightEyePos * inverseHmdPose * torsoPose;
 	}
 	Matrix4 matMVP;
 	return matMVP;

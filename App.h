@@ -124,6 +124,7 @@ private: // OpenGL bookkeeping
 	GLuint controllerVertAr;
 	unsigned int controllerVertCount;
 
+	Matrix4 torsoPose;
 	Matrix4 inverseHmdPose;
 	Matrix4 leftEyePos;
 	Matrix4 rightEyePos;
