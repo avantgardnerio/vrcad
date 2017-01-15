@@ -90,7 +90,9 @@ bool App::handleInput() {
 		if (deviceIdx == 0) {
 			continue; // headset?
 		}
-		const Matrix4 & controllerMat = devicePoseMat[deviceIdx];
+		Matrix4 torsoInverse = torsoPose;
+		torsoInverse.invert();
+		const Matrix4 controllerMat = torsoInverse * devicePoseMat[deviceIdx];
 		Vector3 floorNorm(0, 1, 0); // Floor points up
 		Vector3 worldOrigin(0, 0, 0); // World origin is on our plane
 		Vector3 laserOrigin = controllerMat * Vector3(0, 0, 0);
@@ -102,6 +104,8 @@ bool App::handleInput() {
 		laserFloorIsec.y = 0.0f;
 		laserFloorIsec.z = roundf(laserFloorIsec.z * 10.0f) / 10.0f;
 		Vector2 isec2d = Vector2(laserFloorIsec.x, laserFloorIsec.z);
+
+		// Drawing
 		if (mode == draw && t < 0) {
 			currentPolygon.updateLastVertex(isec2d);
 		}
@@ -116,20 +120,31 @@ bool App::handleInput() {
 				currentPolygon.setHeight(wallIsec.y);
 			}
 		}
+
+		// Click handlers
 		if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 			triggerPressed(deviceIdx, t, isec2d);
 		}
+
+		// Button tracking
 		if (controllerState.ulButtonPressed != 0) {
 			anyButtonPressed = true;
 			buttonPressed = true;
 		}
+
+		// Fly
 		Vector2 input(controllerState.rAxis[0].x, controllerState.rAxis[0].y);
-		if (fabs(input.y) >= 0.1f) {
-			Vector3 moveDir = laserDir * input.y * 0.1;
+		if (fabs(input.y) >= 0.2f) {
+			float offset = input.y * 0.2f;
+			Matrix4 mat = devicePoseMat[deviceIdx];
+			Vector3 controllerOrigin = mat * Vector3(0, 0, 0);
+			Vector3 controllerDir = (mat * Vector3(0, 0, 1)) - controllerOrigin;
+			Vector3 moveDir = controllerDir * (input.y - offset) * 0.05;
 			torsoPose.translate(moveDir);
 		}
-		if (fabs(input.x) >= 0.1f) {
-			torsoPose.rotateY(input.x);
+		if (fabs(input.x) >= 0.2f) {
+			float offset = input.x * 0.2f;
+			torsoPose.rotateY(input.x - offset);
 		}
 	}
 	regenVB();
@@ -145,6 +160,7 @@ void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 is
 		if (t < 0) {
 			currentController = deviceIdx;
 			currentPolygon.clear();
+			currentPolygon.setHeight(0);
 			currentPolygon.addVertex(isec2d);
 			currentPolygon.addVertex(isec2d);
 			mode = draw;
