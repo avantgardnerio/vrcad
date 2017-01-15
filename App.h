@@ -12,7 +12,7 @@
 
 #include "lodepng.h"
 #include "GlUtil.h"
-#include "thirdparty/openvr-1.0.5/samples/shared/Matrices.h"
+#include "Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
 #include "CGLRenderModel.h"
@@ -75,13 +75,13 @@ public:
 	// utility
 	void sleep( unsigned long nMilliseconds );
 
-private: 
+private:
 
 	// ---- me
-	enum EditMode { 
+	enum EditMode {
 		none,
-		draw, 
-		extrude 
+		draw,
+		extrude
 	};
 
 	EditMode mode;

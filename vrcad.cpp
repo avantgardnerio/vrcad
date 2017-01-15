@@ -9,7 +9,7 @@
 #include <openvr.h>
 
 #include "lodepng.h"
-#include "thirdparty/openvr-1.0.5/samples/shared/Matrices.h"
+#include "Matrices.h"
 #include "thirdparty/openvr-1.0.5/samples/shared/pathtools.h"
 
 #include "stdafx.h"
@@ -18,7 +18,7 @@
 int main(int argc, char *argv[]) {
 	App *app = new App(argc, argv);
 
-	if (!app->init()) { 
+	if (!app->init()) {
 		app->shutdown();
 		return 1;
 	}
