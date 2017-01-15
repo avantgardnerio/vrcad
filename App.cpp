@@ -75,7 +75,6 @@ bool App::handleInput() {
 
 	// Process SteamVR controller state
 	bool anyButtonPressed = false;
-	bool dirty = false;
 	for (vr::TrackedDeviceIndex_t deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; deviceIdx++) {
 		vr::VRControllerState_t controllerState;
 		if (!hmd->GetControllerState(deviceIdx, &controllerState, sizeof(controllerState))) {
@@ -98,55 +97,54 @@ bool App::handleInput() {
 		Vector3 rayDirection = (controllerMat * Vector3(0, 0, 1)) - rayOrigin;
 		Vector3 isec;
 		float t = geom::rayPlaneIsec(planeNormal, pointOnPlane, rayOrigin, rayDirection, isec);
-		if (t < 0) {
-			isec.x = roundf(isec.x * 10.0f) / 10.0f;
-			isec.y = 0.0f;
-			isec.z = roundf(isec.z * 10.0f) / 10.0f;
-			Vector2 isec2d = Vector2(isec.x, isec.z);
-			if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
-				//printf("%s\n", byte_to_binary(state.ulButtonPressed));
-				if (mode == none) {
-					currentController = deviceIdx;
-					currentPolygon.clear();
-					currentPolygon.addVertex(isec2d);
-					currentPolygon.addVertex(isec2d);
-					mode = draw;
-				}
-				else {
-					if (mode == draw) {
-						if (isec2d == currentPolygon.getFirstVertex()) {
-							mode = extrude;
-						}
-						else {
-							currentPolygon.addVertex(isec2d);
-						}
-					}
-					else if (mode == extrude) {
-						polygons.push_back(currentPolygon);
-						currentPolygon.clear();
-						dirty = true;
-						mode = none;
-					}
-				}
-			}
-			if (mode == draw) {
-				currentPolygon.updateLastVertex(isec2d);
-				dirty = true;
-			}
+		isec.x = roundf(isec.x * 10.0f) / 10.0f;
+		isec.y = 0.0f;
+		isec.z = roundf(isec.z * 10.0f) / 10.0f;
+		Vector2 isec2d = Vector2(isec.x, isec.z);
+		if (mode == draw && t < 0) {
+			currentPolygon.updateLastVertex(isec2d);
+		}
+		if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
+			triggerPressed(deviceIdx, t, isec2d);
 		}
 		if (controllerState.ulButtonPressed != 0) {
 			anyButtonPressed = true;
 			buttonPressed = true;
 		}
 	}
-	if (dirty) {
-		regenVB();
-	}
+	regenVB();
 	if (anyButtonPressed == false) {
 		buttonPressed = false;
 	}
 
 	return quit;
+}
+
+void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d) {
+	if (mode == none) {
+		if (t < 0) {
+			currentController = deviceIdx;
+			currentPolygon.clear();
+			currentPolygon.addVertex(isec2d);
+			currentPolygon.addVertex(isec2d);
+			mode = draw;
+		}
+	} else {
+		if (mode == draw) {
+			if (t < 0) {
+				if (isec2d == currentPolygon.getFirstVertex()) {
+					mode = extrude;
+				}
+				else {
+					currentPolygon.addVertex(isec2d);
+				}
+			}
+		} else if (mode == extrude) {
+			polygons.push_back(currentPolygon);
+			currentPolygon.clear();
+			mode = none;
+		}
+	}
 }
 
 void App::regenVB() {

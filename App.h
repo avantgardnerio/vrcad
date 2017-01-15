@@ -51,12 +51,15 @@ public:
 	// rendering
 	void regenVB();
 	void mainLoop();
-	bool handleInput();
 	void renderFrame();
 	void renderControllerAxes();
 	void renderToHmd();
 	void renderToMonitorWindow();
 	void renderToEye(vr::Hmd_Eye nEye);
+
+	// input
+	bool handleInput();
+	void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d);
 
 	// GL util
 	GLuint loadShader(std::string name);
