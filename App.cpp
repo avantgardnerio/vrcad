@@ -230,7 +230,7 @@ void App::renderControllerAxes() {
 
 	controllerVertCount = 0;
 
-	float hght = 0.0f;
+	float height = 0.0f;
 	for (vr::TrackedDeviceIndex_t deviceIdx = vr::k_unTrackedDeviceIndex_Hmd + 1; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
 		if (!hmd->IsTrackedDeviceConnected(deviceIdx))
 			continue;
@@ -245,30 +245,7 @@ void App::renderControllerAxes() {
 
 		Vector4 center = mat * Vector4(0, 0, 0, 1);
 		if (deviceIdx == currentController) {
-			hght = center.y;
-		}
-
-		for (int i = 0; i < 3; ++i) {
-			Vector3 color(0, 0, 0);
-			Vector4 point(0, 0, 0, 1);
-			point[i] += 0.05f;  // offset in X, Y, Z
-			color[i] = 1.0;  // R, G, B
-			point = mat * point;
-			floatAr.push_back(center.x);
-			floatAr.push_back(center.y);
-			floatAr.push_back(center.z);
-
-			floatAr.push_back(color.x);
-			floatAr.push_back(color.y);
-			floatAr.push_back(color.z);
-
-			floatAr.push_back(point.x);
-			floatAr.push_back(point.y);
-			floatAr.push_back(point.z);
-
-			floatAr.push_back(color.x);
-			floatAr.push_back(color.y);
-			floatAr.push_back(color.z);
+			height = center.y;
 		}
 
 		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
@@ -285,7 +262,7 @@ void App::renderControllerAxes() {
 	if (mode == draw && currentPolygon != nullptr) {
 		currentPolygon->addToVb2(floatAr);
 	} else if (mode == extrude) {
-		currentPolygon->setHeight(hght);
+		currentPolygon->setHeight(height);
 		currentPolygon->addToVb2(floatAr);
 		regenVB();
 	}
