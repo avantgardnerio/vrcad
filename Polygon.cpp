@@ -34,7 +34,11 @@ namespace geom {
 	}
 
 	Vector2 Polygon::getFirstVertex() {
-		return vertices.front();
+		return vertices.front(); // TODO: Size == 0?
+	}
+
+	Vector2 Polygon::getSecondVertex() {
+		return vertices.at(1 % vertices.size()); // TODO: Size == 0?
 	}
 
 	void Polygon::setHeight(float h) {

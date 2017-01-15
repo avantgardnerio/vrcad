@@ -23,6 +23,7 @@ namespace geom {
 		void Polygon::clear();
 		void addVertex(Vector2 vertex);
 		Vector2 Polygon::getFirstVertex();
+		Vector2 Polygon::getSecondVertex();
 		void Polygon::updateLastVertex(Vector2 vertex);
 		void Polygon::setHeight(float height);
 

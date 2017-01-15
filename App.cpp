@@ -91,21 +91,29 @@ bool App::handleInput() {
 			continue; // headset?
 		}
 		const Matrix4 & controllerMat = devicePoseMat[deviceIdx];
-		Vector3 planeNormal(0, 1, 0); // Floor points up
-		Vector3 pointOnPlane(0, 0, 0); // World origin is on our plane
-		Vector3 rayOrigin = controllerMat * Vector3(0, 0, 0);
-		Vector3 rayDirection = (controllerMat * Vector3(0, 0, 1)) - rayOrigin;
-		Vector3 isec;
-		float t = geom::rayPlaneIsec(planeNormal, pointOnPlane, rayOrigin, rayDirection, isec);
-		isec.x = roundf(isec.x * 10.0f) / 10.0f;
-		isec.y = 0.0f;
-		isec.z = roundf(isec.z * 10.0f) / 10.0f;
-		Vector2 isec2d = Vector2(isec.x, isec.z);
+		Vector3 floorNorm(0, 1, 0); // Floor points up
+		Vector3 worldOrigin(0, 0, 0); // World origin is on our plane
+		Vector3 laserOrigin = controllerMat * Vector3(0, 0, 0);
+		Vector3 laserDir = (controllerMat * Vector3(0, 0, 1)) - laserOrigin;
+		Vector3 laserFloorIsec;
+		float t = geom::rayPlaneIsec(floorNorm, worldOrigin, laserOrigin, laserDir, laserFloorIsec);
+		laserFloorIsec.x = roundf(laserFloorIsec.x * 10.0f) / 10.0f;
+		laserFloorIsec.y = 0.0f;
+		laserFloorIsec.z = roundf(laserFloorIsec.z * 10.0f) / 10.0f;
+		Vector2 isec2d = Vector2(laserFloorIsec.x, laserFloorIsec.z);
 		if (mode == draw && t < 0) {
 			currentPolygon.updateLastVertex(isec2d);
 		}
 		if (mode == extrude && deviceIdx == currentController) {
-			currentPolygon.setHeight(rayOrigin.y);
+			Vector2 first = currentPolygon.getFirstVertex();
+			Vector2 second = currentPolygon.getSecondVertex();
+			Vector3 wallNorm = Vector3(0, 1, 0).cross(Vector3(second.x - first.x, 0, second.y - first.y));
+			Vector3 pointOnWall = Vector3(first.x, 0, first.y);
+			Vector3 wallIsec;
+			float wallT = geom::rayPlaneIsec(wallNorm, pointOnWall, laserOrigin, laserDir, wallIsec);
+			if (wallT < 0) {
+				currentPolygon.setHeight(wallIsec.y);
+			}
 		}
 		if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
 			triggerPressed(deviceIdx, t, isec2d);
