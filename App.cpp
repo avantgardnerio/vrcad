@@ -222,13 +222,12 @@ bool App::handleInput() {
 
 			Matrix4 trans;
 
-			trans.translate(-center);
-			trans.rotateY(deltaAng * 180.0f / M_PI);
-			trans.translate(center);
-
 			trans.translate(delta);
 
+			trans.translate(-center);
+			trans.rotateY(deltaAng * 180.0f / M_PI);
 			trans.scale(deltaDist);
+			trans.translate(center);
 
 			worldTrans = gripWorld * trans;
 		}
@@ -543,15 +542,16 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	glEnable(GL_DEPTH_TEST);
 
+	Matrix4 trans = getEyeProjMat(eye) * worldTrans;
 	glUseProgram(sceneShader);
-	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, getEyeProjMat(eye).get());
+	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, trans.get());
 	glBindVertexArray(sceneVertexAr);
 	glBindTexture(GL_TEXTURE_2D, brickTextureId);
 	glDrawArrays(GL_TRIANGLES, 0, sceneVertCount);
 	glBindVertexArray(0);
 
 	// Text
-	Matrix4 textMat = getEyeProjMat(eye);
+	Matrix4 textMat = getEyeProjMat(eye) * worldTrans;
 	textMat *= textPos;
 	glUseProgram(fontShader);
 	glUniform3f(textColor, 1.0f, 1.0f, 1.0f);
@@ -600,9 +600,9 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 
 Matrix4 App::getEyeProjMat(vr::Hmd_Eye eye) {
 	if (eye == vr::Eye_Left) {
-		return leftEyeProj * leftEyePos * inverseHmdPose * torsoPose * worldTrans;
+		return leftEyeProj * leftEyePos * inverseHmdPose * torsoPose;
 	} else if (eye == vr::Eye_Right) {
-		return rightEyeProj * rightEyePos * inverseHmdPose * torsoPose * worldTrans;
+		return rightEyeProj * rightEyePos * inverseHmdPose * torsoPose;
 	}
 	Matrix4 matMVP;
 	return matMVP;
