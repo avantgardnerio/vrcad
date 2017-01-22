@@ -198,30 +198,39 @@ bool App::handleInput() {
 			gripHead = hmdPose * Vector3(0, 0, 0);
 			gripLookAt = hmdPose * Vector3(0, 0, -1);
 			gripTorso = torsoPose;
+			gripWorld = worldTrans;
 			Vector3 center = (gripRight - gripLeft) / 2.0f + gripLeft;
 			Vector3 diff = gripRight - center;
 			diff.normalize();
 			gripAng = atan2f(diff.x, diff.z);
 		}
 		if (buttonPressed == true && controllerState.ulButtonPressed & BTN_GRIP) {
-			gripLeft = leftHandPose * Vector3(0, 0, 0);
-			gripRight = rightHandPose * Vector3(0, 0, 0);
-			float dist = (gripRight - gripLeft).length();
-			Vector3 center = (gripRight - gripLeft) / 2.0f + gripLeft;
-			Vector3 diff = gripRight - center;
+			Vector3 oldCenter = (gripRight - gripLeft) / 2.0f + gripLeft;
+
+			Vector3 leftHand = leftHandPose * Vector3(0, 0, 0);
+			Vector3 rightHand = rightHandPose * Vector3(0, 0, 0);
+			Vector3 center = (rightHand - leftHand) / 2.0f + leftHand;
+
+			Vector3 delta = center - oldCenter;
+			
+			float dist = (rightHand - leftHand).length();
+			Vector3 diff = rightHand - center;
 			diff.normalize();
 			float ang = atan2f(diff.x, diff.z);
-			float deltaDist = dist - gripDist;
+			float deltaDist = dist / gripDist;
 			float deltaAng = ang - gripAng;
 
-			Matrix4 torso;
-			//char buff[100];
-			//sprintf(buff, "%0.2f", deltaAng);
-			//text = buff;
-			torso.rotateY(deltaAng * 180.0f / M_PI);
-			torso.translate((gripLookAt - gripHead) * deltaDist * 10);
-			torso *= gripTorso;
-			torsoPose = torso;
+			Matrix4 trans;
+
+			trans.translate(-center);
+			trans.rotateY(deltaAng * 180.0f / M_PI);
+			trans.translate(center);
+
+			trans.translate(delta);
+
+			trans.scale(deltaDist);
+
+			worldTrans = gripWorld * trans;
 		}
 
 		// Button tracking
@@ -591,9 +600,9 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 
 Matrix4 App::getEyeProjMat(vr::Hmd_Eye eye) {
 	if (eye == vr::Eye_Left) {
-		return leftEyeProj * leftEyePos * inverseHmdPose * torsoPose;
+		return leftEyeProj * leftEyePos * inverseHmdPose * torsoPose * worldTrans;
 	} else if (eye == vr::Eye_Right) {
-		return rightEyeProj * rightEyePos * inverseHmdPose * torsoPose;
+		return rightEyeProj * rightEyePos * inverseHmdPose * torsoPose * worldTrans;
 	}
 	Matrix4 matMVP;
 	return matMVP;

@@ -124,6 +124,7 @@ private:
 	Vector3 gripHead;
 	Vector3 gripLookAt;
 	Matrix4 gripTorso;
+	Matrix4 gripWorld;
 	float gripDist;
 	float gripAng;
 
@@ -158,6 +159,7 @@ private: // OpenGL bookkeeping
 	GLuint controllerVertAr;
 	unsigned int controllerVertCount;
 
+	Matrix4 worldTrans;
 	Matrix4 torsoPose;
 	Matrix4 hmdPose;
 	Matrix4 inverseHmdPose;
