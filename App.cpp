@@ -456,6 +456,7 @@ void App::renderControllerAxes() {
 		floatAr.push_back(color.x); floatAr.push_back(color.y); floatAr.push_back(color.z);
 	}
 
+	// ---------------------------------------------- TODO: Move polygon rendering out of axes rendering & apply worldTrans to polygons ---------------------------------------------
 	if (mode == draw) {
 		currentPolygon.renderLines(floatAr);
 	} else if (mode == extrude) {
