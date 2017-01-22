@@ -26,8 +26,10 @@ namespace geom {
 		Vector2 Polygon::getSecondVertex();
 		Vector2 Polygon::getLastVertex();
 		Vector2 Polygon::getSecondToLast();
+		Vector2 Polygon::getThirdToLast();
 		void Polygon::updateLastVertex(Vector2 vertex);
 		void Polygon::setHeight(float height);
+		int Polygon::getVertexCount();
 
 		void Polygon::addCubeVertex( float fl0, float fl1, float fl2, float fl3, float fl4, std::vector<float> &vertdata );
 		void Polygon::addCubeToScene( Matrix4 mat, std::vector<float> &vertdata );

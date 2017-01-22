@@ -33,6 +33,10 @@ namespace geom {
 		vertices.push_back(vertex);
 	}
 
+	int Polygon::getVertexCount() {
+		return vertices.size();
+	}
+	
 	Vector2 Polygon::getFirstVertex() {
 		return vertices.front(); // TODO: Size == 0?
 	}
@@ -47,6 +51,10 @@ namespace geom {
 
 	Vector2 Polygon::getSecondToLast() {
 		return vertices.at(vertices.size() - 2); // TODO: Size == 0?
+	}
+
+	Vector2 Polygon::getThirdToLast() {
+		return vertices.at(vertices.size() - 3); // TODO: Size == 0?
 	}
 
 	void Polygon::setHeight(float h) {

@@ -77,6 +77,7 @@ public:
 	// input
 	bool handleInput();
 	void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d);
+	Vector2 App::getSnap(Vector3 target);
 
 	// GL util
 	GLuint loadShader(std::string name);

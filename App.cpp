@@ -2,6 +2,7 @@
 #include <fstream>
 #include <streambuf>
 #include <string>
+#include <math.h>
 
 #include "GlUtil.h"
 #include "Geom.h"
@@ -49,6 +50,60 @@ void App::mainLoop() {
 	}
 
 	SDL_StopTextInput();
+}
+
+Vector2 App::getSnap(Vector3 target3d) {
+	float bestDist = std::numeric_limits<float>::infinity();
+	Vector2 target2d = Vector2(target3d.x, target3d.z);
+	Vector2 bestSnap = target2d;
+
+	// Snap to compass rose when drawing first segment
+	if (mode == draw && currentPolygon.getVertexCount() == 2) {
+		for (float ang = -M_PI; ang < M_PI; ang += M_PI / 2) {
+			Vector2 dir(cosf(ang), sinf(ang));
+			Vector2 firstVert = currentPolygon.getFirstVertex();
+			Vector2 point = target2d - firstVert;
+			float dist = dir.dot(point);
+			dist = roundf(dist * 10) / 10;
+			Vector2 pointOnLine = firstVert + dir * dist;
+			float error = (target2d - pointOnLine).length();
+			if (error < bestDist) {
+				bestDist = error;
+				bestSnap = pointOnLine;
+			}
+		}
+	}
+
+	// Snap to compass rose when drawing first segment
+	if (mode == draw && currentPolygon.getVertexCount() >= 3) {
+		Vector2 fdir = currentPolygon.getSecondToLast() - currentPolygon.getThirdToLast();
+		fdir.normalize();
+		float sdir = atan2(fdir.y, fdir.x);
+		for (float ang = sdir - M_PI; ang < sdir + M_PI; ang += M_PI / 2) {
+			Vector2 dir(cosf(ang), sinf(ang));
+			Vector2 firstVert = currentPolygon.getSecondToLast();
+			Vector2 point = target2d - firstVert;
+			float dist = dir.dot(point);
+			dist = roundf(dist * 10) / 10;
+			Vector2 pointOnLine = firstVert + dir * dist;
+			float error = (target2d - pointOnLine).length();
+			if (error < bestDist) {
+				bestDist = error;
+				bestSnap = pointOnLine;
+			}
+		}
+	}
+
+	// Snap to first point
+	if (mode == draw && currentPolygon.getVertexCount() >= 3) {
+		float dist = (target2d - currentPolygon.getFirstVertex()).length();
+		if (dist < 0.5f) { // Make it super easy to close
+			bestDist = dist;
+			bestSnap = currentPolygon.getFirstVertex();
+		}
+	}
+
+	return bestSnap;
 }
 
 bool App::handleInput() {
@@ -101,10 +156,7 @@ bool App::handleInput() {
 		Vector3 rightDir = laserDir.cross(floorNorm);
 		Vector3 laserFloorIsec;
 		float t = geom::rayPlaneIsec(floorNorm, worldOrigin, laserOrigin, laserDir, laserFloorIsec);
-		laserFloorIsec.x = roundf(laserFloorIsec.x * 10.0f) / 10.0f;
-		laserFloorIsec.y = 0.0f;
-		laserFloorIsec.z = roundf(laserFloorIsec.z * 10.0f) / 10.0f;
-		Vector2 isec2d = Vector2(laserFloorIsec.x, laserFloorIsec.z);
+		Vector2 isec2d = getSnap(laserFloorIsec);
 
 		// Drawing
 		if (mode == draw && t < 0) {
