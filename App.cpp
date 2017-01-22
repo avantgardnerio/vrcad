@@ -215,11 +215,13 @@ bool App::handleInput() {
 			float deltaDist = dist - gripDist;
 			float deltaAng = ang - gripAng;
 
-			Matrix4 torso = gripTorso;
+			Matrix4 torso;
 			char buff[100];
 			sprintf(buff, "%0.2f", deltaAng);
 			text = buff;
 			torso.rotateY(deltaAng * 180.0f / M_PI);
+			torso.translate((gripLookAt - gripHead) * deltaDist * 10);
+			torso *= gripTorso;
 			torsoPose = torso;
 		}
 
