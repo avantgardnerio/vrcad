@@ -121,12 +121,8 @@ private:
 
 	Vector3 gripLeft;
 	Vector3 gripRight;
-	Vector3 gripHead;
-	Vector3 gripLookAt;
-	Matrix4 gripTorso;
 	Matrix4 gripWorld;
-	float gripDist;
-	float gripAng;
+	Matrix4 gripInverse;
 
 	// ---- ???
 

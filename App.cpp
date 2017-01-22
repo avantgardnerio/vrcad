@@ -192,42 +192,37 @@ bool App::handleInput() {
 			triggerPressed(deviceIdx, t, isec2d, laserOrigin);
 		}
 		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_GRIP) {
+			gripWorld = worldTrans;
+			gripInverse = gripWorld;
+			gripInverse.invert();
 			gripLeft = leftHandPose * Vector3(0, 0, 0);
 			gripRight = rightHandPose * Vector3(0, 0, 0);
-			gripDist = (gripRight - gripLeft).length();
-			gripHead = hmdPose * Vector3(0, 0, 0);
-			gripLookAt = hmdPose * Vector3(0, 0, -1);
-			gripTorso = torsoPose;
-			gripWorld = worldTrans;
-			Vector3 center = (gripRight - gripLeft) / 2.0f + gripLeft;
-			Vector3 diff = gripRight - center;
-			diff.normalize();
-			gripAng = atan2f(diff.x, diff.z);
+			gripLeft = gripInverse * gripLeft;
+			gripRight = gripInverse * gripRight;
 		}
 		if (buttonPressed == true && controllerState.ulButtonPressed & BTN_GRIP) {
-			Vector3 oldCenter = (gripRight - gripLeft) / 2.0f + gripLeft;
+			Vector3 gripCenter = (gripRight - gripLeft) / 2.0f + gripLeft;
+			Vector3 gripDir = gripRight - gripCenter;
 
 			Vector3 leftHand = leftHandPose * Vector3(0, 0, 0);
 			Vector3 rightHand = rightHandPose * Vector3(0, 0, 0);
-			Vector3 center = (rightHand - leftHand) / 2.0f + leftHand;
 
-			Vector3 delta = center - oldCenter;
-			
-			float dist = (rightHand - leftHand).length();
-			Vector3 diff = rightHand - center;
-			diff.normalize();
-			float ang = atan2f(diff.x, diff.z);
-			float deltaDist = dist / gripDist;
-			float deltaAng = ang - gripAng;
+			Vector3 worldLeft = gripInverse * leftHand;
+			Vector3 worldRight = gripInverse * rightHand;
+			Vector3 worldCenter = (worldRight - worldLeft) / 2.0f + worldLeft;
+			Vector3 worldDir = worldRight - worldCenter;
+			Vector3 delta = worldCenter - gripCenter;
+			float deltaAng = atan2f(gripDir.z, gripDir.x) - atan2f(worldDir.z, worldDir.x);
+			float deltaDist = worldDir.length() / gripDir.length();
 
 			Matrix4 trans;
 
-			trans.translate(delta);
-
-			trans.translate(-center);
+			trans.translate(-gripCenter);
 			trans.rotateY(deltaAng * 180.0f / M_PI);
 			trans.scale(deltaDist);
-			trans.translate(center);
+			trans.translate(gripCenter);
+
+			trans.translate(delta);
 
 			worldTrans = gripWorld * trans;
 		}
