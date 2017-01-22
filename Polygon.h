@@ -29,6 +29,8 @@ namespace geom {
 		Vector2 Polygon::getThirdToLast();
 		void Polygon::updateLastVertex(Vector2 vertex);
 		void Polygon::setHeight(float height);
+		void Polygon::setBase(float val);
+		float Polygon::getBase();
 		int Polygon::getVertexCount();
 
 		void Polygon::addCubeVertex( float fl0, float fl1, float fl2, float fl3, float fl4, std::vector<float> &vertdata );
@@ -39,5 +41,6 @@ namespace geom {
 	private:
 		std::vector<Vector2> vertices;
 		float height;
+		float base;
 	};
 }

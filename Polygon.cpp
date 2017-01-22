@@ -20,6 +20,7 @@ namespace geom {
 
 	Polygon::Polygon( ) {
 		height = 0.0f;
+		base = 0.0f;
 	}
 
 	Polygon::~Polygon()	{
@@ -46,7 +47,7 @@ namespace geom {
 	}
 
 	Vector2 Polygon::getLastVertex() {
-		return vertices.back(); // TODO: Size == 0?
+		return vertices.at(vertices.size() - 1); // TODO: Size == 0?
 	}
 
 	Vector2 Polygon::getSecondToLast() {
@@ -59,6 +60,14 @@ namespace geom {
 
 	void Polygon::setHeight(float h) {
 		height = h;
+	}
+
+	float Polygon::getBase() {
+		return base;
+	}
+
+	void Polygon::setBase(float val) {
+		base = val;
 	}
 
 	void Polygon::updateLastVertex(Vector2 vertex) {
@@ -74,13 +83,13 @@ namespace geom {
 			Vector2 start = vertices.at(i);
 			Vector2 end = vertices.at((i+1) % vertices.size());
 
-			addCubeVertex( start.x, height, start.y,	0,	v2, vertdataarray );
-			addCubeVertex( end.x,	height, end.y,		u2, v2, vertdataarray );
-			addCubeVertex( end.x,	0,		end.y,		u2, 0,	vertdataarray );
+			addCubeVertex( start.x, base + height, start.y,	0,	v2, vertdataarray );
+			addCubeVertex( end.x, base + height, end.y,		u2, v2, vertdataarray );
+			addCubeVertex( end.x,	base,	end.y,		u2, 0,	vertdataarray );
 
-			addCubeVertex( end.x,	0,		end.y,		u2, 0,	vertdataarray );
-			addCubeVertex( start.x, 0,		start.y,	0,	0,	vertdataarray );
-			addCubeVertex( start.x, height, start.y,	0,	v2, vertdataarray );
+			addCubeVertex( end.x,	base,	end.y,		u2, 0,	vertdataarray );
+			addCubeVertex( start.x, base,	start.y,	0,	0,	vertdataarray );
+			addCubeVertex( start.x, base + height, start.y,	0,	v2, vertdataarray );
 		}
 	}
 
@@ -89,10 +98,10 @@ namespace geom {
 		for (unsigned i=0; i<vertices.size()-1; i++) {
 			Vector2 start = vertices.at(i);
 			Vector2 end = vertices.at((i+1) % vertices.size());
-			vertdataarray.push_back( start.x );vertdataarray.push_back( height );vertdataarray.push_back( start.y );
+			vertdataarray.push_back( start.x );vertdataarray.push_back( base + height );vertdataarray.push_back( start.y );
 			vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
 
-			vertdataarray.push_back( end.x );vertdataarray.push_back( height );vertdataarray.push_back( end.y );
+			vertdataarray.push_back( end.x );vertdataarray.push_back(base + height);vertdataarray.push_back( end.y );
 			vertdataarray.push_back( color.x );vertdataarray.push_back( color.y );vertdataarray.push_back( color.z );
 		}
 	}

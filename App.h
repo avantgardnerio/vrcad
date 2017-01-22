@@ -76,7 +76,7 @@ public:
 
 	// input
 	bool handleInput();
-	void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d);
+	void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d, Vector3 laserOrigin);
 	Vector2 App::getSnap(Vector3 target);
 
 	// GL util
@@ -96,6 +96,7 @@ public:
 	// utility
 	void sleep( unsigned long nMilliseconds );
 	const char *App::byteToBinary(int x);
+	std::string measure(float length);
 
 private:
 

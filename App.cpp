@@ -64,7 +64,7 @@ Vector2 App::getSnap(Vector3 target3d) {
 			Vector2 firstVert = currentPolygon.getFirstVertex();
 			Vector2 point = target2d - firstVert;
 			float dist = dir.dot(point);
-			dist = roundf(dist * 10) / 10;
+			dist = roundf(dist * 100) / 100;
 			Vector2 pointOnLine = firstVert + dir * dist;
 			float error = (target2d - pointOnLine).length();
 			if (error < bestDist) {
@@ -84,7 +84,7 @@ Vector2 App::getSnap(Vector3 target3d) {
 			Vector2 firstVert = currentPolygon.getSecondToLast();
 			Vector2 point = target2d - firstVert;
 			float dist = dir.dot(point);
-			dist = roundf(dist * 10) / 10;
+			dist = roundf(dist * 100) / 100;
 			Vector2 pointOnLine = firstVert + dir * dist;
 			float error = (target2d - pointOnLine).length();
 			if (error < bestDist) {
@@ -97,7 +97,7 @@ Vector2 App::getSnap(Vector3 target3d) {
 	// Snap to first point
 	if (mode == draw && currentPolygon.getVertexCount() >= 3) {
 		float dist = (target2d - currentPolygon.getFirstVertex()).length();
-		if (dist < 0.5f) { // Make it super easy to close
+		if (dist < 0.01f) { 
 			bestDist = dist;
 			bestSnap = currentPolygon.getFirstVertex();
 		}
@@ -156,25 +156,24 @@ bool App::handleInput() {
 		Vector3 rightDir = laserDir.cross(floorNorm);
 		Vector3 laserFloorIsec;
 		float t = geom::rayPlaneIsec(floorNorm, worldOrigin, laserOrigin, laserDir, laserFloorIsec);
-		Vector2 isec2d = getSnap(laserFloorIsec);
+		Vector2 isec2d = getSnap(laserOrigin);
 
 		// Drawing
-		if (mode == draw && t < 0) {
+		if (mode == draw /*&& t < 0*/) {
+			currentPolygon.updateLastVertex(Vector2(isec2d.x, isec2d.y));
 			Vector2 last = currentPolygon.getLastVertex();
 			Vector2 second = currentPolygon.getSecondToLast();
 			Vector2 dir = last - second;
 			dir.normalize();
 			float length = (last - second).length();
 
-			char buff[100];
-			snprintf(buff, sizeof(buff), "%0.2f", length);
-			text = buff;
+			text = measure(length);
 
 			Matrix4 mat;
+			mat.scale(0.1f);
 			mat.rotateY(dir.x, -dir.y);
-			mat.translate(second.x, 0.0f, second.y);
+			mat.translate(second.x, currentPolygon.getBase(), second.y);
 			textPos = mat;
-			currentPolygon.updateLastVertex(isec2d);
 		}
 		if (mode == extrude && deviceIdx == currentController) {
 			Vector2 first = currentPolygon.getFirstVertex();
@@ -182,15 +181,15 @@ bool App::handleInput() {
 			Vector3 wallNorm = Vector3(0, 1, 0).cross(Vector3(second.x - first.x, 0, second.y - first.y));
 			Vector3 pointOnWall = Vector3(first.x, 0, first.y);
 			Vector3 wallIsec;
-			float wallT = geom::rayPlaneIsec(wallNorm, pointOnWall, laserOrigin, laserDir, wallIsec);
-			if (wallT < 0) {
-				currentPolygon.setHeight(wallIsec.y);
-			}
+			//float wallT = geom::rayPlaneIsec(wallNorm, pointOnWall, laserOrigin, laserDir, wallIsec);
+			//if (wallT < 0) {
+				currentPolygon.setHeight(laserOrigin.y - currentPolygon.getBase());
+			//}
 		}
 
 		// Click handlers
 		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_TRIGGER) {
-			triggerPressed(deviceIdx, t, isec2d);
+			triggerPressed(deviceIdx, t, isec2d, laserOrigin);
 		}
 		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_GRIP) {
 			gripLeft = leftHandPose * Vector3(0, 0, 0);
@@ -216,9 +215,9 @@ bool App::handleInput() {
 			float deltaAng = ang - gripAng;
 
 			Matrix4 torso;
-			char buff[100];
-			sprintf(buff, "%0.2f", deltaAng);
-			text = buff;
+			//char buff[100];
+			//sprintf(buff, "%0.2f", deltaAng);
+			//text = buff;
 			torso.rotateY(deltaAng * 180.0f / M_PI);
 			torso.translate((gripLookAt - gripHead) * deltaDist * 10);
 			torso *= gripTorso;
@@ -262,6 +261,18 @@ bool App::handleInput() {
 	return quit;
 }
 
+std::string App::measure(float length) {
+	char buff[100];
+	snprintf(buff, sizeof(buff), "%.1fm", length);
+	if (length <= 1) {
+		snprintf(buff, sizeof(buff), "%.0fcm", length * 100);
+	}
+	if (length <= 0.01) {
+		snprintf(buff, sizeof(buff), "%.0fmm", length * 1000);
+	} 
+	return std::string(buff);
+}
+
 const char *App::byteToBinary(int x) {
 	static char b[9];
 	b[0] = '\0';
@@ -271,26 +282,27 @@ const char *App::byteToBinary(int x) {
 	return b;
 }
 
-void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d) {
+void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d, Vector3 laserOrigin) {
 	if (mode == none) {
-		if (t < 0) {
+		//if (t < 0) {
 			currentController = deviceIdx;
 			currentPolygon.clear();
+			currentPolygon.setBase(laserOrigin.y);
 			currentPolygon.setHeight(0);
-			currentPolygon.addVertex(isec2d);
-			currentPolygon.addVertex(isec2d);
+			currentPolygon.addVertex(Vector2(laserOrigin.x, laserOrigin.z));
+			currentPolygon.addVertex(Vector2(laserOrigin.x, laserOrigin.z));
 			mode = draw;
-		}
+		//}
 	} else {
 		if (mode == draw) {
-			if (t < 0) {
+			//if (t < 0) {
 				if (isec2d == currentPolygon.getFirstVertex()) {
 					mode = extrude;
 				}
 				else {
-					currentPolygon.addVertex(isec2d);
+					currentPolygon.addVertex(Vector2(laserOrigin.x, laserOrigin.z));
 				}
-			}
+			//}
 		} else if (mode == extrude) {
 			polygons.push_back(currentPolygon);
 			currentPolygon.clear();
@@ -427,7 +439,7 @@ void App::renderControllerAxes() {
 
 		Vector4 center = mat * Vector4(0, 0, 0, 1);
 
-		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
+		Vector4 start = mat * Vector4(0, 0, 0.0f, 1);
 		Vector4 end = mat * Vector4(0, 0, -39.f, 1);
 		Vector3 color(0, 0, 1);
 		if (deviceIdx == 2) {
@@ -571,7 +583,7 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 		}
 		matMVP *= matDeviceToTracking;
 		glUniformMatrix4fv(renderModelShaderMatrix, 1, GL_FALSE, matMVP.get());
-		trackedDeviceModels[deviceIdx]->Draw();
+		//trackedDeviceModels[deviceIdx]->Draw();
 	}
 
 	glUseProgram(0);
