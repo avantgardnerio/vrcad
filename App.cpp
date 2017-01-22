@@ -193,7 +193,34 @@ bool App::handleInput() {
 			triggerPressed(deviceIdx, t, isec2d);
 		}
 		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_GRIP) {
-			triggerPressed(deviceIdx, t, isec2d);
+			gripLeft = leftHandPose * Vector3(0, 0, 0);
+			gripRight = rightHandPose * Vector3(0, 0, 0);
+			gripDist = (gripRight - gripLeft).length();
+			gripHead = hmdPose * Vector3(0, 0, 0);
+			gripLookAt = hmdPose * Vector3(0, 0, -1);
+			gripTorso = torsoPose;
+			Vector3 center = (gripRight - gripLeft) / 2.0f + gripLeft;
+			Vector3 diff = gripRight - center;
+			diff.normalize();
+			gripAng = atan2f(diff.x, diff.z);
+		}
+		if (buttonPressed == true && controllerState.ulButtonPressed & BTN_GRIP) {
+			gripLeft = leftHandPose * Vector3(0, 0, 0);
+			gripRight = rightHandPose * Vector3(0, 0, 0);
+			float dist = (gripRight - gripLeft).length();
+			Vector3 center = (gripRight - gripLeft) / 2.0f + gripLeft;
+			Vector3 diff = gripRight - center;
+			diff.normalize();
+			float ang = atan2f(diff.x, diff.z);
+			float deltaDist = dist - gripDist;
+			float deltaAng = ang - gripAng;
+
+			Matrix4 torso = gripTorso;
+			char buff[100];
+			sprintf(buff, "%0.2f", deltaAng);
+			text = buff;
+			torso.rotateY(deltaAng * 180.0f / M_PI);
+			torsoPose = torso;
 		}
 
 		// Button tracking
@@ -593,13 +620,23 @@ void App::updateHmdPose() {
 	vr::VRCompositor()->WaitGetPoses(devicePose, vr::k_unMaxTrackedDeviceCount, NULL, 0);
 
 	poseClasses = "";
+	int hand = 0;
 	for (int deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
 		if (!devicePose[deviceIdx].bPoseIsValid) {
 			continue;
 		}
 		devicePoseMat[deviceIdx] = steamMatToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
 		if (classForDeviceIdx[deviceIdx] != 0) {
-			continue;
+			//continue;
+		}
+		if (hmd->GetTrackedDeviceClass(deviceIdx) == vr::TrackedDeviceClass_Controller) {
+			if (hand == 0) {
+				rightHandPose = devicePoseMat[deviceIdx];
+			}
+			if (hand == 1) {
+				leftHandPose = devicePoseMat[deviceIdx];
+			}
+			hand++;
 		}
 		switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
 			case vr::TrackedDeviceClass_Controller:        classForDeviceIdx[deviceIdx] = 'C'; break;
@@ -613,7 +650,8 @@ void App::updateHmdPose() {
 	}
 
 	if (devicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid) {
-		inverseHmdPose = devicePoseMat[vr::k_unTrackedDeviceIndex_Hmd];
+		hmdPose = devicePoseMat[vr::k_unTrackedDeviceIndex_Hmd];
+		inverseHmdPose = hmdPose;
 		inverseHmdPose.invert();
 	}
 }
