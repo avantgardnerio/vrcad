@@ -170,8 +170,6 @@ bool App::handleInput() {
 			snprintf(buff, sizeof(buff), "%0.2f", length);
 			text = buff;
 
-			this->text = text;
-
 			Matrix4 mat;
 			mat.rotateY(dir.x, -dir.y);
 			mat.translate(second.x, 0.0f, second.y);
@@ -191,7 +189,10 @@ bool App::handleInput() {
 		}
 
 		// Click handlers
-		if (buttonPressed == false && controllerState.ulButtonPressed & 0x200000000) {
+		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_TRIGGER) {
+			triggerPressed(deviceIdx, t, isec2d);
+		}
+		if (buttonPressed == false && controllerState.ulButtonPressed & BTN_GRIP) {
 			triggerPressed(deviceIdx, t, isec2d);
 		}
 
@@ -199,6 +200,14 @@ bool App::handleInput() {
 		if (controllerState.ulButtonPressed != 0) {
 			anyButtonPressed = true;
 			buttonPressed = true;
+
+			/*
+			Matrix4 textOrigin;
+			textOrigin.translate(-1.0f, 0, 0.0f);
+			textOrigin.scale(0.25);
+			textPos = textOrigin;
+			text = byteToBinary(controllerState.ulButtonPressed);
+			*/
 		}
 
 		// Fly
@@ -222,6 +231,15 @@ bool App::handleInput() {
 	}
 
 	return quit;
+}
+
+const char *App::byteToBinary(int x) {
+	static char b[9];
+	b[0] = '\0';
+	for (int z = 128; z > 0; z >>= 1) {
+		strcat(b, ((x & z) == z) ? "1" : "0");
+	}
+	return b;
 }
 
 void App::triggerPressed(vr::TrackedDeviceIndex_t deviceIdx, float t, Vector2 isec2d) {
@@ -383,6 +401,9 @@ void App::renderControllerAxes() {
 		Vector4 start = mat * Vector4(0, 0, -0.02f, 1);
 		Vector4 end = mat * Vector4(0, 0, -39.f, 1);
 		Vector3 color(0, 0, 1);
+		if (deviceIdx == 2) {
+			color = Vector3(1, 0, 0);
+		}
 
 		floatAr.push_back(start.x); floatAr.push_back(start.y); floatAr.push_back(start.z);
 		floatAr.push_back(color.x); floatAr.push_back(color.y); floatAr.push_back(color.z);
@@ -480,10 +501,8 @@ void App::renderToEye(vr::Hmd_Eye eye) {
 	glBindVertexArray(0);
 
 	// Text
-	Matrix4 textInv = textPos;
-	//textInv.invert();
 	Matrix4 textMat = getEyeProjMat(eye);
-	textMat *= textInv;
+	textMat *= textPos;
 	glUseProgram(fontShader);
 	glUniform3f(textColor, 1.0f, 1.0f, 1.0f);
 	glUniformMatrix4fv(sceneShaderMatrix, 1, GL_FALSE, textMat.get());
@@ -575,20 +594,22 @@ void App::updateHmdPose() {
 
 	poseClasses = "";
 	for (int deviceIdx = 0; deviceIdx < vr::k_unMaxTrackedDeviceCount; ++deviceIdx) {
-		if (devicePose[deviceIdx].bPoseIsValid) {
-			devicePoseMat[deviceIdx] = steamMatToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
-			if (classForDeviceIdx[deviceIdx] == 0) {
-				switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
-					case vr::TrackedDeviceClass_Controller:        classForDeviceIdx[deviceIdx] = 'C'; break;
-					case vr::TrackedDeviceClass_HMD:               classForDeviceIdx[deviceIdx] = 'H'; break;
-					case vr::TrackedDeviceClass_Invalid:           classForDeviceIdx[deviceIdx] = 'I'; break;
-					case vr::TrackedDeviceClass_GenericTracker:    classForDeviceIdx[deviceIdx] = 'G'; break;
-					case vr::TrackedDeviceClass_TrackingReference: classForDeviceIdx[deviceIdx] = 'T'; break;
-					default:                                       classForDeviceIdx[deviceIdx] = '?'; break;
-				}
-			}
-			poseClasses += classForDeviceIdx[deviceIdx];
+		if (!devicePose[deviceIdx].bPoseIsValid) {
+			continue;
 		}
+		devicePoseMat[deviceIdx] = steamMatToMatrix4(devicePose[deviceIdx].mDeviceToAbsoluteTracking);
+		if (classForDeviceIdx[deviceIdx] != 0) {
+			continue;
+		}
+		switch (hmd->GetTrackedDeviceClass(deviceIdx)) {
+			case vr::TrackedDeviceClass_Controller:        classForDeviceIdx[deviceIdx] = 'C'; break;
+			case vr::TrackedDeviceClass_HMD:               classForDeviceIdx[deviceIdx] = 'H'; break;
+			case vr::TrackedDeviceClass_Invalid:           classForDeviceIdx[deviceIdx] = 'I'; break;
+			case vr::TrackedDeviceClass_GenericTracker:    classForDeviceIdx[deviceIdx] = 'G'; break;
+			case vr::TrackedDeviceClass_TrackingReference: classForDeviceIdx[deviceIdx] = 'T'; break;
+			default:                                       classForDeviceIdx[deviceIdx] = '?'; break;
+		}
+		poseClasses += classForDeviceIdx[deviceIdx];
 	}
 
 	if (devicePose[vr::k_unTrackedDeviceIndex_Hmd].bPoseIsValid) {

@@ -95,6 +95,7 @@ public:
 
 	// utility
 	void sleep( unsigned long nMilliseconds );
+	const char *App::byteToBinary(int x);
 
 private:
 
@@ -113,6 +114,12 @@ private:
 
 	std::string text;
 	Matrix4 textPos;
+
+	const uint64_t BTN_GRIP = 4;
+	const uint64_t BTN_TRIGGER = 0x200000000;
+
+	Vector3 gripLeft;
+	Vector3 gripRight;
 
 	// ---- ???
 
